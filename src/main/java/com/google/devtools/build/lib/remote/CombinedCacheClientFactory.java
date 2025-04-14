@@ -18,6 +18,7 @@ import com.google.auth.Credentials;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
@@ -101,7 +102,7 @@ public final class CombinedCacheClientFactory {
               Math.toIntExact(options.remoteTimeout.getSeconds()),
               options.remoteMaxConnections,
               options.remoteVerifyDownloads,
-              ImmutableList.copyOf(options.remoteHeaders),
+              ImmutableList.copyOf(Iterables.concat(options.remoteHeaders, options.remoteCacheHeaders)),
               digestUtil,
               retrier,
               creds,
@@ -115,7 +116,7 @@ public final class CombinedCacheClientFactory {
             Math.toIntExact(options.remoteTimeout.getSeconds()),
             options.remoteMaxConnections,
             options.remoteVerifyDownloads,
-            ImmutableList.copyOf(options.remoteHeaders),
+            ImmutableList.copyOf(Iterables.concat(options.remoteHeaders, options.remoteCacheHeaders)),
             digestUtil,
             retrier,
             creds,
