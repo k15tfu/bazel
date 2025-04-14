@@ -1,0 +1,49 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }} ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: linux, arch: x86_64, runner: ubuntu-22.04 }
+          - { os: linux, arch: arm64, runner: ubuntu-22.04-arm }
+          - { os: darwin, arch: x86_64, runner: macos-13 }
+          - { os: darwin, arch: arm64, runner: macos-latest }
+          #- { os: windows, arch: x86_64, runner: windows-latest }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazelbuild/setup-bazelisk@v3
+      - run: bazelisk build //src:bazel
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bazel-${{ matrix.os }}-${{ matrix.arch }}
+          path: bazel-bin/src/bazel
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+      - run: echo "TAG_NAME=8.2.0-dev${GITHUB_SHA:0:7}" >> $GITHUB_ENV
+      - run: |
+          mkdir ./out
+          cp ./artifacts/bazel-darwin-arm64/bazel ./out/bazel-$TAG_NAME-darwin-arm64
+          cp ./artifacts/bazel-darwin-x86_64/bazel ./out/bazel-$TAG_NAME-darwin-x86_64
+          cp ./artifacts/bazel-linux-arm64/bazel ./out/bazel-$TAG_NAME-linux-arm64
+          cp ./artifacts/bazel-linux-x86_64/bazel ./out/bazel-$TAG_NAME-linux-x86_64
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          target_commitish: ${{ github.sha }}
+          files: ./out/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
