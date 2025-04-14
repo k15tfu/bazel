@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.ByteStreams;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
@@ -36,7 +37,10 @@ import io.netty.handler.timeout.ReadTimeoutException;
 import io.netty.util.internal.StringUtil;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URI;
 import java.util.Map.Entry;
 
 /** ChannelHandler for downloads. */
@@ -96,6 +100,32 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
         contentLength = HttpUtil.getContentLength(response);
       }
       downloadSucceeded = response.status().equals(HttpResponseStatus.OK);
+
+      if (response.status().equals(HttpResponseStatus.TEMPORARY_REDIRECT)) {
+        String location = response.headers().get(HttpHeaderNames.LOCATION);
+        if (location == null) {
+          failAndClose(new HttpException(response, "Missing 'Location' header", null), ctx);
+          return;
+        }
+
+        URI redirectUri = URI.create(location);
+        HttpURLConnection connection = (HttpURLConnection) redirectUri.toURL().openConnection();
+        connection.setInstanceFollowRedirects(false);
+        connection.setConnectTimeout(30000);
+        connection.setReadTimeout(30000);
+        try (InputStream inputStream = connection.getInputStream()) {
+          ByteStreams.copy(inputStream, out);
+
+          contentLength = connection.getContentLengthLong();
+          downloadSucceeded = connection.getResponseCode() == HttpURLConnection.HTTP_OK;
+        } catch (Exception e) {
+          failAndClose(e, ctx);
+          return;
+        } finally {
+          connection.disconnect();
+        }
+      }
+
       if (!downloadSucceeded) {
         out = new ByteArrayOutputStream();
       }
