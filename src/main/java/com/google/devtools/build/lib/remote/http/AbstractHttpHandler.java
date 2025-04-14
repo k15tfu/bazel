@@ -67,6 +67,9 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
       request.headers().set(HttpHeaderNames.AUTHORIZATION, "Basic " + value);
       return;
     }
+    if (extraHttpHeaders.stream().anyMatch(header -> header.getKey().equalsIgnoreCase(HttpHeaderNames.AUTHORIZATION.toString()))) {
+      return;
+    }
     if (credentials == null || !credentials.hasRequestMetadata()) {
       return;
     }
