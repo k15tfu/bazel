@@ -352,7 +352,8 @@ public final class GoogleAuthUtils {
       Map<String, String> clientEnv, FileSystem fileSystem) throws IOException {
     Optional<String> netrcFileString =
         Optional.ofNullable(clientEnv.get("NETRC"))
-            .or(() -> Optional.ofNullable(clientEnv.get("HOME")).map(home -> home + "/.netrc"));
+            .or(() -> Optional.ofNullable(clientEnv.get("HOME")).map(home -> home + "/.netrc"))
+            .or(() -> Optional.ofNullable(clientEnv.get("USERPROFILE")).map(home -> home + "\\.netrc"));
     if (netrcFileString.isEmpty()) {
       return Optional.empty();
     }
