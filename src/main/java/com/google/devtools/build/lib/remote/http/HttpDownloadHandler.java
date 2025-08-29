@@ -210,7 +210,7 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
     httpRequest.headers().set(HttpHeaderNames.HOST, host);
     httpRequest.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
     httpRequest.headers().set(HttpHeaderNames.ACCEPT, "*/*");
-    httpRequest.headers().set(HttpHeaderNames.ACCEPT_ENCODING, HttpHeaderValues.GZIP);
+    httpRequest.headers().set(HttpHeaderNames.ACCEPT_ENCODING, HttpHeaderValues.ZSTD + ", " + HttpHeaderValues.GZIP);
     return httpRequest;
   }
 
