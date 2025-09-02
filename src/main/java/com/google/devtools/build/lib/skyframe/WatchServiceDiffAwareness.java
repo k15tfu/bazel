@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsProvider;
+import com.sun.nio.file.ExtendedWatchEventModifier;
 import java.io.IOException;
 import java.nio.file.ClosedWatchServiceException;
 import java.nio.file.FileVisitResult;
@@ -263,8 +264,21 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   /** Traverses directory tree to register subdirectories. */
   private void registerSubDirectories(Path rootDir) throws IOException {
     // Note that this does not follow symlinks.
-    WatcherFileVisitor watcherFileVisitor = new WatcherFileVisitor(ignoredPaths);
-    Files.walkFileTree(rootDir, watcherFileVisitor);
+    if (!isWindows) {
+      WatcherFileVisitor watcherFileVisitor = new WatcherFileVisitor(ignoredPaths);
+      Files.walkFileTree(rootDir, watcherFileVisitor);
+    } else {
+      // use recursive file watcher on Windows, don't traverse the tree
+      WatchKey key = rootDir.register(
+          watchService,
+          new Kind[]{
+              StandardWatchEventKinds.ENTRY_CREATE,
+              StandardWatchEventKinds.ENTRY_MODIFY,
+              StandardWatchEventKinds.ENTRY_DELETE,
+          },
+          ExtendedWatchEventModifier.FILE_TREE);
+      watchKeyToDirBiMap.put(key, rootDir);
+    }
   }
 
   /**
@@ -274,9 +288,34 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   private Set<Path> registerSubDirectoriesAndReturnContents(Path rootDir) throws IOException {
     Set<Path> visitedAbsolutePaths = new HashSet<>();
     // Note that this does not follow symlinks.
-    WatcherFileVisitor watcherFileVisitor =
-        new WatcherFileVisitor(visitedAbsolutePaths, ignoredPaths);
-    Files.walkFileTree(rootDir, watcherFileVisitor);
+    if (!isWindows) {
+      WatcherFileVisitor watcherFileVisitor =
+          new WatcherFileVisitor(visitedAbsolutePaths, ignoredPaths);
+      Files.walkFileTree(rootDir, watcherFileVisitor);
+    } else {
+      // traverse the tree recursively on Windows, don't register file watchers for subdirectories
+      Files.walkFileTree(rootDir, new SimpleFileVisitor<>() {
+        @Override
+        public FileVisitResult visitFile(Path path, BasicFileAttributes attrs) {
+          Preconditions.checkState(path.isAbsolute(), path);
+          visitedAbsolutePaths.add(path);
+          return FileVisitResult.CONTINUE;
+        }
+
+        @Override
+        public FileVisitResult preVisitDirectory(Path path, BasicFileAttributes attrs) {
+          // Do not traverse the bazel-* convenience symlinks. On windows these are created as
+          // junctions.
+          if (attrs.isOther()) {
+            return FileVisitResult.SKIP_SUBTREE;
+          }
+
+          Preconditions.checkState(path.isAbsolute(), path);
+          visitedAbsolutePaths.add(path);
+          return FileVisitResult.CONTINUE;
+        }
+      });
+    }
     return visitedAbsolutePaths;
   }
 
