@@ -14,21 +14,25 @@
 package com.google.devtools.build.lib.windows;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
-import java.nio.file.Path;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.DosFileAttributes;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
 
 /** File system implementation for Windows. */
 @ThreadSafe
@@ -113,6 +117,44 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       throw new NotASymlinkException(path);
     }
     throw new IOException(result.getResult());
+  }
+
+  private static Dirent.Type direntFromBasicFileAttributes(boolean followSymlinks, BasicFileAttributes attrs) {
+    final boolean isSymbolicLink = !followSymlinks && (attrs.isSymbolicLink() || attrs.isOther());
+    if (isSymbolicLink) {  // as per https://bugs.openjdk.org/browse/JDK-8364277
+      return Dirent.Type.SYMLINK;
+    } else if (attrs.isRegularFile()) {
+      return Dirent.Type.FILE;
+    } else if (attrs.isDirectory()) {
+      return Dirent.Type.DIRECTORY;
+    } else {
+      return Dirent.Type.UNKNOWN;
+    }
+  }
+
+  @Override
+  protected Collection<Dirent> readdir(PathFragment path, boolean followSymlinks) throws IOException {
+    Path root = getNioPath(path);
+    List<Dirent> dirents = Lists.newArrayList();
+    Files.walkFileTree(root, followSymlinks ? Set.of(FileVisitOption.FOLLOW_LINKS) : Set.of(), 1, new SimpleFileVisitor<>() {
+      @Override
+      public FileVisitResult visitFile(java.nio.file.Path path, BasicFileAttributes attrs) {
+        Dirent.Type type = direntFromBasicFileAttributes(followSymlinks, attrs);
+        dirents.add(new Dirent(path.getFileName().toString(), type));
+        return FileVisitResult.CONTINUE;
+      }
+
+      @Override
+      public FileVisitResult preVisitDirectory(Path path, BasicFileAttributes attrs) {
+        if (path.equals(root)) {
+          return FileVisitResult.CONTINUE;  // only children
+        }
+        Dirent.Type type = direntFromBasicFileAttributes(followSymlinks, attrs);
+        dirents.add(new Dirent(path.getFileName().toString(), type));
+        return FileVisitResult.SKIP_SUBTREE;
+      }
+    });
+    return dirents;
   }
 
   @Override
