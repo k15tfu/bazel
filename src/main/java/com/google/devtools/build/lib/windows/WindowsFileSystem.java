@@ -27,6 +27,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
+import java.nio.file.Path;
 import java.nio.file.attribute.DosFileAttributes;
 
 /** File system implementation for Windows. */
@@ -142,18 +143,16 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
   @Override
   protected FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    File file = getIoFile(path);
+    Path nioPath = getNioPath(path);
     final DosFileAttributes attributes;
     try {
-      attributes = getAttribs(file, followSymlinks);
+      attributes = getAttribs(nioPath, followSymlinks);
     } catch (IOException e) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
 
     // BasicFileAttributes#isOther is true iff FILE_ATTRIBUTE_DEVICE or FILE_ATTRIBUTE_REPARSE_POINT, assume no devices under output user root
     final boolean isSymbolicLink = !followSymlinks && (attributes.isSymbolicLink() || attributes.isOther());
-    final long lastChangeTime =
-        WindowsFileOperations.getLastChangeTime(getNioPath(path).toString(), followSymlinks);
     FileStatus status =
         new FileStatus() {
           @Override
@@ -189,9 +188,23 @@ public class WindowsFileSystem extends JavaIoFileSystem {
             return attributes.lastModifiedTime().toMillis();
           }
 
+          private volatile Long myLastChangeTime;
+
           @Override
           public long getLastChangeTime() {
-            return lastChangeTime;
+            if (myLastChangeTime != null) {
+              return myLastChangeTime;
+            }
+            synchronized (this) {
+              if (myLastChangeTime == null) {
+                try {
+                  myLastChangeTime = WindowsFileOperations.getLastChangeTime(nioPath.toString(), followSymlinks);
+                } catch (IOException e) {
+                  throw new RuntimeException(e);
+                }
+              }
+              return myLastChangeTime;
+            }
           }
 
           @Override
@@ -271,9 +284,9 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     return WindowsFileOperations.isSymlinkOrJunction(file.getPath());
   }
 
-  private static DosFileAttributes getAttribs(File file, boolean followSymlinks)
+  private static DosFileAttributes getAttribs(Path path, boolean followSymlinks)
       throws IOException {
     return Files.readAttributes(
-        file.toPath(), DosFileAttributes.class, symlinkOpts(followSymlinks));
+        path, DosFileAttributes.class, symlinkOpts(followSymlinks));
   }
 }
