@@ -150,7 +150,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
 
-    final boolean isSymbolicLink = !followSymlinks && fileIsSymbolicLink(file);
+    // BasicFileAttributes#isOther is true iff FILE_ATTRIBUTE_DEVICE or FILE_ATTRIBUTE_REPARSE_POINT, assume no devices under output user root
+    final boolean isSymbolicLink = !followSymlinks && (attributes.isSymbolicLink() || attributes.isOther());
     final long lastChangeTime =
         WindowsFileOperations.getLastChangeTime(getNioPath(path).toString(), followSymlinks);
     FileStatus status =
@@ -165,7 +166,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
             // attributes.isOther() returns false for symlinks but returns true for junctions.
             // Bazel treats junctions like symlinks. So let's return false here for junctions.
             // This fixes https://github.com/bazelbuild/bazel/issues/9176
-            return !isSymbolicLink && attributes.isOther();
+            return followSymlinks && attributes.isOther();
           }
 
           @Override
