@@ -50,15 +50,19 @@ fi
 fulljdk=$1
 out=$3
 ARCH=`uname -m`
+UNAME=$(uname -s | tr 'A-Z' 'a-z')
 if [[ "${ARCH}" == 'ppc64le'  ]] || [[ "${ARCH}" == 's390x' ]] || [[ "${ARCH}" == 'riscv64' ]]; then
   FULL_JDK_DIR="jdk*"
   DOCS=""
 else
-  FULL_JDK_DIR="zulu*"
-  DOCS="DISCLAIMER readme.txt"
+  if [[ "$UNAME" =~ darwin ]]; then
+    FULL_JDK_DIR="jbrsdk*/Contents/Home"
+  else
+    FULL_JDK_DIR="jbrsdk*"
+  fi
+  DOCS=""
 fi
 
-UNAME=$(uname -s | tr 'A-Z' 'a-z')
 
 if [[ "$UNAME" =~ msys_nt* ]]; then
   mkdir "tmp.$$"
@@ -94,6 +98,7 @@ else
   # to the owner stored in the archive - it will try to do that when running as
   # root, but fail when running inside Docker, so we explicitly disable it.
   tar xf "$fulljdk" --no-same-owner
+  BASE_DIR=`pwd`
   cd $FULL_JDK_DIR
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
@@ -108,7 +113,7 @@ else
     cp lib/libdt_socket.so lib/libjdwp.so reduced/lib
   fi
   find reduced -exec touch -ht 198001010000 {} +
-  zip -q -X -r ../reduced.zip reduced/
-  cd ..
+  zip -q -X -r $BASE_DIR/reduced.zip reduced/
+  cd -
   mv reduced.zip "$out"
 fi

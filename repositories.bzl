@@ -79,15 +79,15 @@ def embedded_jdk_repositories():
     """OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK."""
     http_file(
         name = "openjdk_linux_vanilla",
-        integrity = "sha256-Kf6gF8A8ZFIhujEgjlENeuSPVzW6QWnVZcRst35/ZvI=",
-        downloaded_file_path = "zulu-linux-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu24.28.83-ca-jdk24.0.0-linux_x64.tar.gz",
+        downloaded_file_path = "jbrsdk-linux-vanilla.tar.gz",
+        sha256 = "00d8858f489654c354b4a2c995228bd29dcb93eea079c167e4c33f7dea6ae190",
+        url = "https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-25-linux-x64-b176.4.tar.gz",
     )
     http_file(
         name = "openjdk_linux_aarch64_vanilla",
-        integrity = "sha256-6J7szd/ax9xCMNA9efw9Bhgv/VwQFXz5glWIoj+UYIc=",
-        downloaded_file_path = "zulu-linux-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu24.28.83-ca-jdk24.0.0-linux_aarch64.tar.gz",
+        downloaded_file_path = "jbrsdk-linux-aarch64-vanilla.tar.gz",
+        sha256 = "b0cb77d197ddfad8e0ea590ff4394998a886d4d1db5aacadd2dc442e9e2e214b",
+        url = "https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-25-linux-aarch64-b176.4.tar.gz",
     )
     http_file(
         name = "openjdk_linux_s390x_vanilla",
@@ -109,29 +109,29 @@ def embedded_jdk_repositories():
     )
     http_file(
         name = "openjdk_macos_x86_64_vanilla",
-        integrity = "sha256-e7KJtJ9+mFFSdKCj68thfTXguWH5zXaSSb9phzXf/lQ=",
-        downloaded_file_path = "zulu-macos-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu24.28.83-ca-jdk24.0.0-macosx_x64.tar.gz",
+        downloaded_file_path = "jbrsdk-macos-vanilla.tar.gz",
+        sha256 = "8295bc1945ec87bef0bc9a3afe012343b1a23a20807eb17adbd3a689cce3be1e",
+        url = "https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-25-osx-x64-b176.4.tar.gz",
     )
     http_file(
         name = "openjdk_macos_aarch64_vanilla",
-        integrity = "sha256-7yXLOJCK0RZ8V1vsexOGxGR9NAwi/pCl95BlO8E8nGU=",
-        downloaded_file_path = "zulu-macos-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu24.28.83-ca-jdk24.0.0-macosx_aarch64.tar.gz",
+        downloaded_file_path = "jbrsdk-macos-aarch64-vanilla.tar.gz",
+        sha256 = "092aa3ca64e94e386ed76aadfa5d5a2725b33804fc40c1f74e643545770ce01b",
+        url = "https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-25-osx-aarch64-b176.4.tar.gz",
     )
     http_file(
         name = "openjdk_win_vanilla",
-        integrity = "sha256-Nfmnb2gAmoKWgefl801WVjTNxxaaT+TmbwSzJ8uccf8=",
-        downloaded_file_path = "zulu-win-vanilla.zip",
-        url = "https://cdn.azul.com/zulu/bin/zulu24.28.83-ca-jdk24.0.0-win_x64.zip",
+        downloaded_file_path = "jbrsdk-win-vanilla.zip",
+        sha256 = "112d168b97539ba52bdd0dedca65724f653b3679559d44f2749680d05f85227c",
+        url = "https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-25-windows-x64-b176.4.zip",
     )
 
     # Later version of the JDK for Windows ARM64 are not available yet.
     http_file(
         name = "openjdk_win_arm64_vanilla",
-        integrity = "sha256-V8VoNVuX0ojxK3IHYNgCsaGcVemwcHpcKtdtNP2JPbg=",
-        downloaded_file_path = "zulu-win-arm64.zip",
-        url = "https://cdn.azul.com/zulu/bin/zulu21.40.17-ca-jdk21.0.6-win_aarch64.zip",
+        downloaded_file_path = "jbrsdk-win-arm64.zip",
+        sha256 = "0d615a3c9e14f4bb94cf7d454e1261c4146d9d447670912dddfe6e0f578f1ec1",
+        url = "https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-25-windows-aarch64-b176.4.zip",
     )
 
 def _async_profiler_repos(ctx):
