@@ -130,8 +130,8 @@ def embedded_jdk_repositories():
     http_file(
         name = "openjdk_win_arm64_vanilla",
         downloaded_file_path = "jbrsdk-win-arm64.zip",
-        sha256 = "0d615a3c9e14f4bb94cf7d454e1261c4146d9d447670912dddfe6e0f578f1ec1",
-        url = "https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-25-windows-aarch64-b176.4.zip",
+        sha256 = "57c568355b97d288f12b720760d802b1a19c55e9b0707a5c2ad76d34fd893db8",
+        url = "https://cdn.azul.com/zulu/bin/zulu21.40.17-ca-jdk21.0.6-win_aarch64.zip",
     )
 
 def _async_profiler_repos(ctx):
