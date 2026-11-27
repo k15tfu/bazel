@@ -31,6 +31,8 @@ namespace windows {
 namespace {
 
 // From the 10.0.26100.0 SDK. Declared here because older SDKs don't have them.
+// See
+// https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-file_stat_basic_information
 struct FILE_STAT_BASIC_INFORMATION {
   LARGE_INTEGER FileId;
   LARGE_INTEGER CreationTime;
@@ -56,6 +58,8 @@ enum FILE_INFO_BY_NAME_CLASS { FileStatBasicByNameInfo = 3 };
 
 // Looked up at runtime: a static import would keep Bazel from starting on
 // Windows 10.
+// See
+// https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getfileinformationbyname
 using GetFileInformationByNameFn = BOOL(WINAPI*)(PCWSTR,
                                                  FILE_INFO_BY_NAME_CLASS, PVOID,
                                                  ULONG);
