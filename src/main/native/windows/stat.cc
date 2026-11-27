@@ -74,7 +74,7 @@ GetFileInformationByNameFn GetFileInformationByNameOrNull() {
 
 // Fallback for when GetFileInformationByName is unavailable or can't answer.
 int StatByHandle(const WCHAR* path, bool follow_reparse_points,
-                 FileMetadata& result, std::wstring& error) {
+                 StatInfo& result, std::wstring& error) {
   DWORD flags = FILE_FLAG_BACKUP_SEMANTICS;
   if (!follow_reparse_points) {
     flags |= FILE_FLAG_OPEN_REPARSE_POINT;
@@ -125,7 +125,7 @@ int StatByHandle(const WCHAR* path, bool follow_reparse_points,
 }  // namespace
 
 int Stat(const std::wstring& path, bool follow_reparse_points,
-         FileMetadata& result, std::wstring& error) {
+         StatInfo& result, std::wstring& error) {
   if (!IsAbsoluteNormalizedWindowsPath(path)) {
     error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"Stat", path,
                              L"expected an absolute Windows path");

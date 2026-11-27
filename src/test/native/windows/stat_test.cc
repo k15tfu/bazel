@@ -62,10 +62,10 @@ class WindowsStatTest : public ::testing::Test {
 };
 
 TEST_F(WindowsStatTest, TestReportsPathThatIsNotAbsoluteAndNormalized) {
-  FileMetadata metadata;
+  StatInfo info;
   for (const wchar_t* path : {L"", L"foo\\bar", L"c:\\foo\\..\\bar"}) {
     std::wstring error;
-    EXPECT_EQ(StatResult::kError, Stat(path, false, metadata, error))
+    EXPECT_EQ(StatResult::kError, Stat(path, false, info, error))
         << "path=" << path;
     EXPECT_FALSE(error.empty()) << "path=" << path;
   }
@@ -73,20 +73,20 @@ TEST_F(WindowsStatTest, TestReportsPathThatIsNotAbsoluteAndNormalized) {
 
 TEST_F(WindowsStatTest, TestReportsErrorForInvalidName) {
   std::wstring path(TmpDir() + L"\\in<valid");
-  FileMetadata metadata;
+  StatInfo info;
   std::wstring error;
-  EXPECT_EQ(StatResult::kError, Stat(path, false, metadata, error));
+  EXPECT_EQ(StatResult::kError, Stat(path, false, info, error));
   EXPECT_FALSE(error.empty());
 }
 
 TEST_F(WindowsStatTest, TestReportsMissingPath) {
   std::wstring path(TmpDir() + L"\\no_such_entry");
-  FileMetadata metadata;
+  StatInfo info;
   std::wstring error;
   EXPECT_EQ(StatResult::kDoesNotExist,
-            Stat(path.c_str(), false, metadata, error));
+            Stat(path.c_str(), false, info, error));
   EXPECT_EQ(StatResult::kDoesNotExist,
-            Stat(path.c_str(), true, metadata, error));
+            Stat(path.c_str(), true, info, error));
 }
 
 TEST_F(WindowsStatTest, TestDescribesRegularFile) {
@@ -94,16 +94,16 @@ TEST_F(WindowsStatTest, TestDescribesRegularFile) {
   ASSERT_TRUE(CreateDummyFile(path, kContent));
 
   for (bool follow : {false, true}) {
-    FileMetadata metadata;
+    StatInfo info;
     std::wstring error;
     ASSERT_EQ(StatResult::kSuccess,
-              Stat(path.c_str(), follow, metadata, error))
+              Stat(path.c_str(), follow, info, error))
         << "follow=" << follow;
-    EXPECT_EQ(0u, metadata.attributes & FILE_ATTRIBUTE_DIRECTORY);
-    EXPECT_EQ(0u, metadata.attributes & FILE_ATTRIBUTE_REPARSE_POINT);
-    EXPECT_EQ(static_cast<int64_t>(kContent.size()), metadata.size);
-    EXPECT_GT(metadata.last_write_time.QuadPart, 0);
-    EXPECT_GT(metadata.change_time.QuadPart, 0);
+    EXPECT_EQ(0u, info.attributes & FILE_ATTRIBUTE_DIRECTORY);
+    EXPECT_EQ(0u, info.attributes & FILE_ATTRIBUTE_REPARSE_POINT);
+    EXPECT_EQ(static_cast<int64_t>(kContent.size()), info.size);
+    EXPECT_GT(info.last_write_time.QuadPart, 0);
+    EXPECT_GT(info.change_time.QuadPart, 0);
   }
 }
 
@@ -111,21 +111,21 @@ TEST_F(WindowsStatTest, TestDescribesDirectory) {
   std::wstring path(TmpDir() + L"\\a_dir");
   ASSERT_TRUE(::CreateDirectoryW(path.c_str(), nullptr));
 
-  FileMetadata metadata;
+  StatInfo info;
   std::wstring error;
-  ASSERT_EQ(StatResult::kSuccess, Stat(path.c_str(), false, metadata, error));
-  EXPECT_NE(0u, metadata.attributes & FILE_ATTRIBUTE_DIRECTORY);
-  EXPECT_EQ(0u, metadata.attributes & FILE_ATTRIBUTE_REPARSE_POINT);
+  ASSERT_EQ(StatResult::kSuccess, Stat(path.c_str(), false, info, error));
+  EXPECT_NE(0u, info.attributes & FILE_ATTRIBUTE_DIRECTORY);
+  EXPECT_EQ(0u, info.attributes & FILE_ATTRIBUTE_REPARSE_POINT);
 }
 
 TEST_F(WindowsStatTest, TestDescribesRootDirectory) {
   std::wstring root(TmpDir().substr(0, kUncPrefix.size() + 3));
   ASSERT_EQ(L'\\', root[root.size() - 1]);
 
-  FileMetadata metadata;
+  StatInfo info;
   std::wstring error;
-  ASSERT_EQ(StatResult::kSuccess, Stat(root.c_str(), false, metadata, error));
-  EXPECT_NE(0u, metadata.attributes & FILE_ATTRIBUTE_DIRECTORY);
+  ASSERT_EQ(StatResult::kSuccess, Stat(root.c_str(), false, info, error));
+  EXPECT_NE(0u, info.attributes & FILE_ATTRIBUTE_DIRECTORY);
 }
 
 TEST_F(WindowsStatTest, TestDescribesJunctionAndFollowsIt) {
@@ -136,16 +136,16 @@ TEST_F(WindowsStatTest, TestDescribesJunctionAndFollowsIt) {
             CreateJunction(name, target, nullptr));
 
   // NOFOLLOW describes the junction itself.
-  FileMetadata metadata;
+  StatInfo info;
   std::wstring error;
-  ASSERT_EQ(StatResult::kSuccess, Stat(name.c_str(), false, metadata, error));
-  EXPECT_NE(0u, metadata.attributes & FILE_ATTRIBUTE_REPARSE_POINT);
-  EXPECT_NE(0u, metadata.attributes & FILE_ATTRIBUTE_DIRECTORY);
+  ASSERT_EQ(StatResult::kSuccess, Stat(name.c_str(), false, info, error));
+  EXPECT_NE(0u, info.attributes & FILE_ATTRIBUTE_REPARSE_POINT);
+  EXPECT_NE(0u, info.attributes & FILE_ATTRIBUTE_DIRECTORY);
 
   // FOLLOW describes the target.
-  ASSERT_EQ(StatResult::kSuccess, Stat(name.c_str(), true, metadata, error));
-  EXPECT_EQ(0u, metadata.attributes & FILE_ATTRIBUTE_REPARSE_POINT);
-  EXPECT_NE(0u, metadata.attributes & FILE_ATTRIBUTE_DIRECTORY);
+  ASSERT_EQ(StatResult::kSuccess, Stat(name.c_str(), true, info, error));
+  EXPECT_EQ(0u, info.attributes & FILE_ATTRIBUTE_REPARSE_POINT);
+  EXPECT_NE(0u, info.attributes & FILE_ATTRIBUTE_DIRECTORY);
 }
 
 TEST_F(WindowsStatTest, TestDescribesDanglingJunctionUnderNofollow) {
@@ -156,10 +156,10 @@ TEST_F(WindowsStatTest, TestDescribesDanglingJunctionUnderNofollow) {
             CreateJunction(name, target, nullptr));
   ASSERT_TRUE(::RemoveDirectoryW(target.c_str()));
 
-  FileMetadata metadata;
+  StatInfo info;
   std::wstring error;
-  ASSERT_EQ(StatResult::kSuccess, Stat(name.c_str(), false, metadata, error));
-  EXPECT_NE(0u, metadata.attributes & FILE_ATTRIBUTE_REPARSE_POINT);
+  ASSERT_EQ(StatResult::kSuccess, Stat(name.c_str(), false, info, error));
+  EXPECT_NE(0u, info.attributes & FILE_ATTRIBUTE_REPARSE_POINT);
 }
 
 TEST_F(WindowsStatTest, TestDescribesFileReachedThroughJunction) {
@@ -173,14 +173,14 @@ TEST_F(WindowsStatTest, TestDescribesFileReachedThroughJunction) {
 
   std::wstring path(name + L"\\a_file");
   for (bool follow : {false, true}) {
-    FileMetadata metadata;
+    StatInfo info;
     std::wstring error;
     ASSERT_EQ(StatResult::kSuccess,
-              Stat(path.c_str(), follow, metadata, error))
+              Stat(path.c_str(), follow, info, error))
         << "follow=" << follow;
-    EXPECT_EQ(0u, metadata.attributes & FILE_ATTRIBUTE_REPARSE_POINT);
-    EXPECT_EQ(0u, metadata.attributes & FILE_ATTRIBUTE_DIRECTORY);
-    EXPECT_EQ(static_cast<int64_t>(kContent.size()), metadata.size);
+    EXPECT_EQ(0u, info.attributes & FILE_ATTRIBUTE_REPARSE_POINT);
+    EXPECT_EQ(0u, info.attributes & FILE_ATTRIBUTE_DIRECTORY);
+    EXPECT_EQ(static_cast<int64_t>(kContent.size()), info.size);
   }
 }
 
@@ -197,19 +197,19 @@ TEST_F(WindowsStatTest, TestDescribesFileAnotherHandleHoldsExclusively) {
                                   FILE_ATTRIBUTE_NORMAL, nullptr));
   ASSERT_TRUE(handle.IsValid());
 
-  FileMetadata metadata;
+  StatInfo info;
   std::wstring error;
-  ASSERT_EQ(StatResult::kSuccess, Stat(path.c_str(), false, metadata, error));
-  EXPECT_EQ(static_cast<int64_t>(kContent.size()), metadata.size);
+  ASSERT_EQ(StatResult::kSuccess, Stat(path.c_str(), false, info, error));
+  EXPECT_EQ(static_cast<int64_t>(kContent.size()), info.size);
 }
 
 TEST_F(WindowsStatTest, TestReadsTheSameFieldsAsTheCallsItReplaces) {
   std::wstring path(TmpDir() + L"\\a_file");
   ASSERT_TRUE(CreateDummyFile(path, kContent));
 
-  FileMetadata metadata;
+  StatInfo info;
   std::wstring error;
-  ASSERT_EQ(StatResult::kSuccess, Stat(path.c_str(), false, metadata, error));
+  ASSERT_EQ(StatResult::kSuccess, Stat(path.c_str(), false, info, error));
 
   WIN32_FILE_ATTRIBUTE_DATA expected = {};
   ASSERT_TRUE(
@@ -226,13 +226,13 @@ TEST_F(WindowsStatTest, TestReadsTheSameFieldsAsTheCallsItReplaces) {
   }
 
   // Checks that the local FILE_STAT_BASIC_INFORMATION layout matches the SDK's.
-  EXPECT_EQ(expected.dwFileAttributes, metadata.attributes);
+  EXPECT_EQ(expected.dwFileAttributes, info.attributes);
   EXPECT_EQ((static_cast<int64_t>(expected.nFileSizeHigh) << 32) |
                 expected.nFileSizeLow,
-            metadata.size);
+            info.size);
   EXPECT_EQ(ToTicks(expected.ftLastWriteTime),
-            metadata.last_write_time.QuadPart);
-  EXPECT_EQ(expected_basic.ChangeTime.QuadPart, metadata.change_time.QuadPart);
+            info.last_write_time.QuadPart);
+  EXPECT_EQ(expected_basic.ChangeTime.QuadPart, info.change_time.QuadPart);
 }
 
 }  // namespace windows

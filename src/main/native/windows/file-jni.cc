@@ -144,17 +144,16 @@ Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeStat(
     JNIEnv* env, jclass clazz, jstring path, jboolean follow_reparse_points,
     jlongArray result_holder, jobjectArray error_msg_holder) {
   std::wstring wpath(bazel::windows::GetJavaWstring(env, path));
-  bazel::windows::FileMetadata metadata;
+  bazel::windows::StatInfo info;
   std::wstring error;
-  int result =
-      bazel::windows::Stat(wpath, follow_reparse_points, metadata, error);
+  int result = bazel::windows::Stat(wpath, follow_reparse_points, info, error);
   if (result == bazel::windows::StatResult::kSuccess) {
     // Keep the layout in sync with WindowsFileOperations#statIfFound.
     jlong values[bazel::windows::kStatResultLength] = {
-        static_cast<jlong>(metadata.attributes),
-        static_cast<jlong>(metadata.size),
-        bazel::windows::WindowsFileTimeToUnixNanos(metadata.last_write_time),
-        bazel::windows::WindowsFileTimeToUnixNanos(metadata.change_time),
+        static_cast<jlong>(info.attributes),
+        static_cast<jlong>(info.size),
+        bazel::windows::WindowsFileTimeToUnixNanos(info.last_write_time),
+        bazel::windows::WindowsFileTimeToUnixNanos(info.change_time),
     };
     env->SetLongArrayRegion(result_holder, 0, bazel::windows::kStatResultLength,
                             values);

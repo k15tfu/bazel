@@ -41,7 +41,7 @@ struct StatResult {
 constexpr int kStatResultLength = 4;
 
 // Times are in FILETIME units (100ns since 1601-01-01 UTC).
-struct FileMetadata {
+struct StatInfo {
   DWORD attributes;
   int64_t size;
   LARGE_INTEGER last_write_time;
@@ -56,8 +56,8 @@ struct FileMetadata {
 // Uses GetFileInformationByName (Windows 11 build 26100+) when it can, and a
 // file handle otherwise. When the function returns StatResult::kError, `error`
 // receives an error message.
-int Stat(const std::wstring& path, bool follow_reparse_points,
-         FileMetadata& result, std::wstring& error);
+int Stat(const std::wstring& path, bool follow_reparse_points, StatInfo& result,
+         std::wstring& error);
 
 }  // namespace windows
 }  // namespace bazel
