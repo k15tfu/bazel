@@ -104,14 +104,6 @@ public class WindowsFileOperations {
   // Keep STAT_RESULT_LENGTH in sync with kStatResultLength in src/main/native/windows/stat.h.
   private static final int STAT_RESULT_LENGTH = 4;
 
-  // The winnt.h attribute bits that FileMetadata reports on. Note that FILE_ATTRIBUTE_DIRECTORY is
-  // set on a junction and on a directory symlink too, so a caller that distinguishes links from
-  // directories must test FILE_ATTRIBUTE_REPARSE_POINT first.
-  private static final int FILE_ATTRIBUTE_READONLY = 0x00000001;
-  private static final int FILE_ATTRIBUTE_DIRECTORY = 0x00000010;
-  private static final int FILE_ATTRIBUTE_DEVICE = 0x00000040;
-  private static final int FILE_ATTRIBUTE_REPARSE_POINT = 0x00000400;
-
   private static native int nativeIsSymlinkOrJunction(
       String path, boolean[] result, String[] error);
 
@@ -283,19 +275,10 @@ public class WindowsFileOperations {
     }
   }
 
-  /** The metadata of one file. Times are in nanoseconds since the Unix epoch. */
-  record FileMetadata(
-      boolean isDirectory,
-      boolean isReparsePoint,
-      boolean isDevice,
-      boolean isReadOnly,
-      long size,
-      long lastModifiedTimeNanos,
-      long lastChangeTimeNanos) {}
-
-  /** Returns the metadata of `path`, or null if it does not exist. */
+  /** Returns the status of `path`, or null if it does not exist. */
   @Nullable
-  static FileMetadata statIfFound(String path, boolean followReparsePoints) throws IOException {
+  static WindowsFileStatus statIfFound(String path, boolean followReparsePoints)
+      throws IOException {
     // Keep the layout in sync with nativeStat in file-jni.cc.
     long[] result = new long[STAT_RESULT_LENGTH];
     String[] error = new String[] {null};
@@ -305,15 +288,7 @@ public class WindowsFileOperations {
         result,
         error)) {
       case STAT_SUCCESS:
-        int attributes = (int) result[0];
-        return new FileMetadata(
-            (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0,
-            (attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0,
-            (attributes & FILE_ATTRIBUTE_DEVICE) != 0,
-            (attributes & FILE_ATTRIBUTE_READONLY) != 0,
-            result[1],
-            result[2],
-            result[3]);
+        return new WindowsFileStatus((int) result[0], result[1], result[2], result[3]);
       case STAT_DOES_NOT_EXIST:
         return null;
       case STAT_ACCESS_DENIED:

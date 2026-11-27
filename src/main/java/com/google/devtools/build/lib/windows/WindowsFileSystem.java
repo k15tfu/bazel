@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
-import com.google.devtools.build.lib.windows.WindowsFileOperations.FileMetadata;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
@@ -155,26 +154,25 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
   @Override
   public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    final FileMetadata metadata;
+    final WindowsFileStatus status;
     try {
-      metadata = statMetadataIfFound(path, followSymlinks);
+      status = windowsStatIfFound(path, followSymlinks);
     } catch (AccessDeniedException | InvalidPathException e) {
       FileNotFoundException fnfe = new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
       fnfe.initCause(e);
       throw fnfe;
     }
-    if (metadata == null) {
+    if (status == null) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
-    return newFileStatus(metadata);
+    return status;
   }
 
   @Override
   @Nullable
   public FileStatus statIfFound(PathFragment path, boolean followSymlinks) {
-    FileMetadata metadata;
     try {
-      metadata = statMetadataIfFound(path, followSymlinks);
+      return windowsStatIfFound(path, followSymlinks);
     } catch (AccessDeniedException | InvalidPathException e) {
       // Same as WindowsFileSystem#stat: null where #stat throws FileNotFoundException
       return null;
@@ -182,68 +180,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       // Same as JavaIoFileSystem#statIfFound
       throw new IllegalStateException(e);
     }
-    return metadata == null ? null : newFileStatus(metadata);
   }
 
   @Nullable
-  private FileMetadata statMetadataIfFound(PathFragment path, boolean followSymlinks)
+  private WindowsFileStatus windowsStatIfFound(PathFragment path, boolean followSymlinks)
       throws IOException {
     return WindowsFileOperations.statIfFound(getNioPath(path).toString(), followSymlinks);
-  }
-
-  private static FileStatus newFileStatus(FileMetadata metadata) {
-    FileStatus status =
-        new FileStatus() {
-          @Override
-          public boolean isFile() {
-            return (!metadata.isReparsePoint() && !metadata.isDirectory()) || metadata.isDevice();
-          }
-
-          @Override
-          public boolean isSpecialFile() {
-            return metadata.isDevice();
-          }
-
-          @Override
-          public boolean isDirectory() {
-            return !metadata.isReparsePoint() && metadata.isDirectory();
-          }
-
-          @Override
-          public boolean isSymbolicLink() {
-            // Bazel treats both symlinks and junctions as symbolic links.
-            return metadata.isReparsePoint();
-          }
-
-          @Override
-          public long getSize() {
-            return metadata.size();
-          }
-
-          @Override
-          public long getLastModifiedTimeNanos() {
-            return metadata.lastModifiedTimeNanos();
-          }
-
-          @Override
-          public long getLastChangeTimeNanos() {
-            return metadata.lastChangeTimeNanos();
-          }
-
-          @Override
-          public long getNodeId() {
-            // TODO(bazel-team): Consider making use of attributes.fileKey().
-            return -1;
-          }
-
-          @Override
-          public int getPermissions() {
-            // Files on Windows are implicitly readable and executable.
-            return 0555 | (metadata.isReadOnly() ? 0 : 0200);
-          }
-        };
-
-    return status;
   }
 
   @Override

@@ -14,7 +14,10 @@ filegroup(
 
 java_library(
     name = "file",
-    srcs = ["WindowsFileOperations.java"],
+    srcs = [
+        "WindowsFileOperations.java",
+        "WindowsFileStatus.java",
+    ],
     visibility = [
         "//src/main/java/com/google/devtools/build/lib:build_lib",
         "//third_party/bazel_rules/rules_android/src/tools/java/com/google/devtools/build/android/junctions:__pkg__",
