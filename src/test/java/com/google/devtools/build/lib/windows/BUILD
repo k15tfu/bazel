@@ -57,6 +57,32 @@ java_test(
     ],
 )
 
+# Runs WindowsFileSystemTest with stat forced onto the file handle fallback path.
+java_test(
+    name = "WindowsFileSystemTest_stat_by_handle",
+    srcs = ["WindowsFileSystemTest.java"],
+    env = {"BAZEL_WINDOWS_STAT_BY_HANDLE": "1"},
+    test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:default_syscall_cache",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/windows",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
+        "//src/test/java/com/google/devtools/build/lib/windows/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    ],
+)
+
 java_binary(
     name = "MockSubprocess",
     testonly = 1,

@@ -40,6 +40,10 @@ struct StatResult {
 // Keep in sync with WindowsFileOperations#STAT_RESULT_LENGTH.
 constexpr int kStatResultLength = 4;
 
+// When set, whatever its value, Stat never uses GetFileInformationByName. This
+// lets tests exercise the fallback path on machines that have the fast one.
+constexpr wchar_t kStatByHandleEnvVar[] = L"BAZEL_WINDOWS_STAT_BY_HANDLE";
+
 // Times are in FILETIME units (100ns since 1601-01-01 UTC).
 struct StatInfo {
   DWORD attributes;
@@ -54,8 +58,8 @@ struct StatInfo {
 // prefix if it's longer than MAX_PATH.
 //
 // Uses GetFileInformationByName (Windows 11 build 26100+) when it can, and a
-// file handle otherwise. When the function returns StatResult::kError, `error`
-// receives an error message.
+// file handle otherwise, or when kStatByHandleEnvVar is set. When the function
+// returns StatResult::kError, `error` receives an error message.
 int Stat(const std::wstring& path, bool follow_reparse_points, StatInfo& result,
          std::wstring& error);
 

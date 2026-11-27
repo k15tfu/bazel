@@ -43,11 +43,6 @@ using std::string;
 static const std::wstring kUncPrefix = std::wstring(L"\\\\?\\");
 static const string kContent = "hello";
 
-static bool HasGetFileInformationByName() {
-  return ::GetProcAddress(::GetModuleHandleW(L"kernel32.dll"),
-                          "GetFileInformationByName") != nullptr;
-}
-
 static int64_t ToTicks(const FILETIME& time) {
   return static_cast<int64_t>(
       (static_cast<uint64_t>(time.dwHighDateTime) << 32) | time.dwLowDateTime);
@@ -186,8 +181,10 @@ TEST_F(WindowsStatTest, TestDescribesFileReachedThroughJunction) {
 
 TEST_F(WindowsStatTest, TestDescribesFileAnotherHandleHoldsExclusively) {
   // GetFileInformationByName opens no handle, so sharing mode doesn't matter.
-  if (!HasGetFileInformationByName()) {
-    GTEST_SKIP() << "this machine has no GetFileInformationByName";
+  if (::GetEnvironmentVariableW(kStatByHandleEnvVar, nullptr, 0) != 0 ||
+      ::GetProcAddress(::GetModuleHandleW(L"kernel32.dll"),
+                       "GetFileInformationByName") == nullptr) {
+    GTEST_SKIP() << "Stat doesn't use GetFileInformationByName here";
   }
   std::wstring path(TmpDir() + L"\\exclusive");
   ASSERT_TRUE(CreateDummyFile(path, kContent));

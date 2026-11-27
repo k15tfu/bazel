@@ -64,11 +64,15 @@ using GetFileInformationByNameFn = BOOL(WINAPI*)(PCWSTR,
                                                  FILE_INFO_BY_NAME_CLASS, PVOID,
                                                  ULONG);
 
-// Returns null below Windows 11 build 26100.
+// Returns null below Windows 11 build 26100, and when kStatByHandleEnvVar is
+// set.
 GetFileInformationByNameFn GetFileInformationByNameOrNull() {
   static const GetFileInformationByNameFn fn =
-      reinterpret_cast<GetFileInformationByNameFn>(::GetProcAddress(
-          ::GetModuleHandleW(L"kernel32.dll"), "GetFileInformationByName"));
+      ::GetEnvironmentVariableW(kStatByHandleEnvVar, nullptr, 0) != 0
+          ? nullptr
+          : reinterpret_cast<GetFileInformationByNameFn>(
+                ::GetProcAddress(::GetModuleHandleW(L"kernel32.dll"),
+                                 "GetFileInformationByName"));
   return fn;
 }
 
