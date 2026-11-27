@@ -157,15 +157,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
   @Override
   @Nullable
-  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) {
+  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     try {
       return windowsStatIfFound(path, followSymlinks);
     } catch (AccessDeniedException | InvalidPathException e) {
       // Same as WindowsFileSystem#stat: null where #stat throws FileNotFoundException
       return null;
-    } catch (IOException e) {
-      // Same as JavaIoFileSystem#statIfFound
-      throw new IllegalStateException(e);
     }
   }
 

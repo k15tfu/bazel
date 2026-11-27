@@ -496,7 +496,7 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
 
   @Override
   @Nullable
-  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) {
+  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     try {
       return stat(path, followSymlinks);
     } catch (FileNotFoundException | InvalidPathException e) {
@@ -505,10 +505,6 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
       // codepath. Thus, this method will incorrectly not throw an exception for some filesystem
       // errors.
       return null;
-    } catch (IOException e) {
-      // If this codepath is ever hit, then this method should be rewritten to properly distinguish
-      // between not-found exceptions and others.
-      throw new IllegalStateException(e);
     }
   }
 
