@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
@@ -143,8 +142,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
     final WindowsFileStatus status;
     try {
-      status = windowsStatIfFound(path, followSymlinks);
-    } catch (AccessDeniedException | InvalidPathException e) {
+      status = WindowsFileOperations.statIfFound(getNioPath(path).toString(), followSymlinks);
+    } catch (InvalidPathException e) {
       FileNotFoundException fnfe = new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
       fnfe.initCause(e);
       throw fnfe;
@@ -159,17 +158,11 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   @Nullable
   public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     try {
-      return windowsStatIfFound(path, followSymlinks);
-    } catch (AccessDeniedException | InvalidPathException e) {
+      return WindowsFileOperations.statIfFound(getNioPath(path).toString(), followSymlinks);
+    } catch (InvalidPathException e) {
       // Same as WindowsFileSystem#stat: null where #stat throws FileNotFoundException
       return null;
     }
-  }
-
-  @Nullable
-  private WindowsFileStatus windowsStatIfFound(PathFragment path, boolean followSymlinks)
-      throws IOException {
-    return WindowsFileOperations.statIfFound(getNioPath(path).toString(), followSymlinks);
   }
 
   @Override
