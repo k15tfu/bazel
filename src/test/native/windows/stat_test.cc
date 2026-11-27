@@ -214,9 +214,16 @@ TEST_F(WindowsStatTest, TestReadsTheSameFieldsAsTheCallsItReplaces) {
   WIN32_FILE_ATTRIBUTE_DATA expected = {};
   ASSERT_TRUE(
       ::GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &expected));
-  int64_t expected_change_time = 0;
-  ASSERT_EQ(GetChangeTimeResult::kSuccess,
-            GetChangeTime(path.c_str(), false, &expected_change_time, nullptr));
+  FILE_BASIC_INFO expected_basic = {};
+  {
+    AutoHandle handle(::CreateFileW(
+        path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    ASSERT_TRUE(handle.IsValid());
+    ASSERT_TRUE(::GetFileInformationByHandleEx(
+        handle, FileBasicInfo, &expected_basic, sizeof(expected_basic)));
+  }
 
   // Checks that the local FILE_STAT_BASIC_INFORMATION layout matches the SDK's.
   EXPECT_EQ(expected.dwFileAttributes, metadata.attributes);
@@ -225,8 +232,7 @@ TEST_F(WindowsStatTest, TestReadsTheSameFieldsAsTheCallsItReplaces) {
             metadata.size);
   EXPECT_EQ(ToTicks(expected.ftLastWriteTime),
             metadata.last_write_time.QuadPart);
-  EXPECT_EQ(expected_change_time,
-            WindowsFileTimeToUnixNanos(metadata.change_time));
+  EXPECT_EQ(expected_basic.ChangeTime.QuadPart, metadata.change_time.QuadPart);
 }
 
 }  // namespace windows

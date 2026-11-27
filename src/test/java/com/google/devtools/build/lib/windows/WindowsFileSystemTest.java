@@ -205,16 +205,17 @@ public class WindowsFileSystemTest {
   }
 
   @Test
-  public void testStatChangeTimeAgreesWithASecondResolution() throws Exception {
-    java.nio.file.Path nioPath = testUtil.scratchFile("dir\\hello.txt", "hello");
+  public void testStatChangeTimeIsInNanosSinceUnixEpoch() throws Exception {
+    long before = TimeUnit.MILLISECONDS.toNanos(Instant.now().minusSeconds(10).toEpochMilli());
+    testUtil.scratchFile("dir\\hello.txt", "hello");
     Path path = testUtil.createVfsPath(fs, "dir\\hello.txt");
 
-    long fromStat = fs.stat(path.asFragment(), /* followSymlinks= */ true).getLastChangeTimeNanos();
-    long fromSecondCall =
-        WindowsFileOperations.getLastChangeTimeNanos(
-            nioPath.toAbsolutePath().toString(), /* followReparsePoints= */ true);
+    long changeTime =
+        fs.stat(path.asFragment(), /* followSymlinks= */ true).getLastChangeTimeNanos();
+    long after = TimeUnit.MILLISECONDS.toNanos(Instant.now().plusSeconds(10).toEpochMilli());
 
-    assertThat(fromStat).isEqualTo(fromSecondCall);
+    assertThat(changeTime).isAtLeast(before);
+    assertThat(changeTime).isAtMost(after);
   }
 
   @Test
