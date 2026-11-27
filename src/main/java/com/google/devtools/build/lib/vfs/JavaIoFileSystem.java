@@ -208,12 +208,8 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
       return true;
     }
 
-    try {
-      if (fileIsSymbolicLink(file.toPath())) {
-        throw new IOException(path + ERR_FILE_EXISTS);
-      }
-    } catch (InvalidPathException e) {
-      throw new IOException(path + ERR_NO_SUCH_FILE_OR_DIR, e);
+    if (isSymbolicLink(path)) {
+      throw new IOException(path + ERR_FILE_EXISTS);
     }
     if (file.isDirectory()) {
       return false; // directory already existed
@@ -399,10 +395,6 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
     } finally {
       Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
     }
-  }
-
-  protected boolean fileIsSymbolicLink(java.nio.file.Path file) {
-    return Files.isSymbolicLink(file);
   }
 
   @Override

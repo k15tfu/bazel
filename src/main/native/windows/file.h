@@ -66,15 +66,6 @@ std::wstring RemoveUncPrefixMaybe(const std::wstring& path);
 bool IsAbsoluteNormalizedWindowsPath(const std::wstring& p);
 
 // Keep in sync with j.c.g.devtools.build.lib.windows.WindowsFileOperations
-struct IsSymlinkOrJunctionResult {
-  enum {
-    kSuccess = 0,
-    kError = 1,
-    kDoesNotExist = 2,
-  };
-};
-
-// Keep in sync with j.c.g.devtools.build.lib.windows.WindowsFileOperations
 struct DeletePathResult {
   enum {
     kSuccess = 0,
@@ -118,15 +109,6 @@ struct ReadSymlinkOrJunctionResult {
     kNotALink = 4,
   };
 };
-
-// Determines whether `path` is a junction (or directory symlink).
-//
-// `path` should be an absolute, normalized, Windows-style path, with "\\?\"
-// prefix if it's longer than MAX_PATH.
-//
-// To read about differences between junctions and directory symlinks,
-// see http://superuser.com/a/343079. In Bazel we only ever create junctions.
-int IsSymlinkOrJunction(const WCHAR* path, bool* result, wstring* error);
 
 // Converts a FILETIME value to nanoseconds since the Unix epoch.
 int64_t WindowsFileTimeToUnixNanos(LARGE_INTEGER filetime);

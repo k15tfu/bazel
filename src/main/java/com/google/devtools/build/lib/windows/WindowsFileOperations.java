@@ -55,11 +55,6 @@ public class WindowsFileOperations {
     // Prevent construction
   }
 
-  // Keep IS_SYMLINK_OR_JUNCTION_* values in sync with src/main/native/windows/file.cc.
-  private static final int IS_SYMLINK_OR_JUNCTION_SUCCESS = 0;
-  // IS_SYMLINK_OR_JUNCTION_ERROR = 1;
-  private static final int IS_SYMLINK_OR_JUNCTION_DOES_NOT_EXIST = 2;
-
   // Keep CREATE_JUNCTION_* values in sync with src/main/native/windows/file.h.
   private static final int CREATE_JUNCTION_SUCCESS = 0;
   // CREATE_JUNCTION_ERROR = 1;
@@ -98,9 +93,6 @@ public class WindowsFileOperations {
   // Keep STAT_RESULT_LENGTH in sync with kStatResultLength in src/main/native/windows/stat.h.
   private static final int STAT_RESULT_LENGTH = 4;
 
-  private static native int nativeIsSymlinkOrJunction(
-      String path, boolean[] result, String[] error);
-
   private static native int nativeCreateJunction(String name, String target, String[] error);
 
   private static native int nativeCreateSymlink(String name, String target, String[] error);
@@ -112,25 +104,6 @@ public class WindowsFileOperations {
 
   private static native int nativeStat(
       String path, boolean followReparsePoints, long[] result, String[] error);
-
-  /** Determines whether `path` is a junction point or directory symlink. */
-  public static boolean isSymlinkOrJunction(String path) throws IOException {
-    boolean[] result = new boolean[] {false};
-    String[] error = new String[] {null};
-    switch (nativeIsSymlinkOrJunction(
-        WindowsPathOperations.addUncPrefixAndUseBackslashes(path), result, error)) {
-      case IS_SYMLINK_OR_JUNCTION_SUCCESS:
-        return result[0];
-      case IS_SYMLINK_OR_JUNCTION_DOES_NOT_EXIST:
-        throw new FileNotFoundException(platformToInternal(path));
-      default:
-        // This is IS_SYMLINK_OR_JUNCTION_ERROR (1). The JNI code puts a custom message in
-        // 'error[0]'.
-        break;
-    }
-    throw new IOException(
-        platformToInternal(String.format("Cannot tell if '%s' is link: %s", path, error[0])));
-  }
 
   /**
    * Creates a junction at `name`, pointing to `target`.

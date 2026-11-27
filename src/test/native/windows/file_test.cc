@@ -49,6 +49,12 @@ using std::wstring;
 
 static const wstring kUncPrefix = wstring(L"\\\\?\\");
 
+static bool IsReparsePoint(const wstring& path) {
+  DWORD attrs = ::GetFileAttributesW(path.c_str());
+  return attrs != INVALID_FILE_ATTRIBUTES &&
+         (attrs & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+}
+
 class WindowsFileOperationsTest : public ::testing::Test {
  public:
   void TearDown() override { DeleteAllUnder(GetTestTmpDirW()); }
@@ -87,10 +93,7 @@ TEST_F(WindowsFileOperationsTest, TestCreateJunction) {
   wstring file1(target + L"\\foo");
   EXPECT_TRUE(blaze_util::CreateDummyFile(file1));
 
-  bool is_link = true;
-  EXPECT_EQ(IsSymlinkOrJunctionResult::kSuccess,
-            IsSymlinkOrJunction(target.c_str(), &is_link, nullptr));
-  EXPECT_FALSE(is_link);
+  EXPECT_FALSE(IsReparsePoint(target));
   EXPECT_NE(INVALID_FILE_ATTRIBUTES, ::GetFileAttributesW(file1.c_str()));
 
   wstring name(tmp + L"\\junc_name");
@@ -107,22 +110,10 @@ TEST_F(WindowsFileOperationsTest, TestCreateJunction) {
             CreateJunctionResult::kSuccess);
 
   // Assert creation of the junctions.
-  is_link = false;
-  ASSERT_EQ(IsSymlinkOrJunctionResult::kSuccess,
-            IsSymlinkOrJunction((name + L"1").c_str(), &is_link, nullptr));
-  ASSERT_TRUE(is_link);
-  is_link = false;
-  ASSERT_EQ(IsSymlinkOrJunctionResult::kSuccess,
-            IsSymlinkOrJunction((name + L"2").c_str(), &is_link, nullptr));
-  ASSERT_TRUE(is_link);
-  is_link = false;
-  ASSERT_EQ(IsSymlinkOrJunctionResult::kSuccess,
-            IsSymlinkOrJunction((name + L"3").c_str(), &is_link, nullptr));
-  ASSERT_TRUE(is_link);
-  is_link = false;
-  ASSERT_EQ(IsSymlinkOrJunctionResult::kSuccess,
-            IsSymlinkOrJunction((name + L"4").c_str(), &is_link, nullptr));
-  ASSERT_TRUE(is_link);
+  ASSERT_TRUE(IsReparsePoint(name + L"1"));
+  ASSERT_TRUE(IsReparsePoint(name + L"2"));
+  ASSERT_TRUE(IsReparsePoint(name + L"3"));
+  ASSERT_TRUE(IsReparsePoint(name + L"4"));
 
   // Assert that the file is visible under all junctions.
   ASSERT_NE(INVALID_FILE_ATTRIBUTES,

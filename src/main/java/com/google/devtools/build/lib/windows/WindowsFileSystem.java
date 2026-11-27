@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.windows;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -136,18 +135,6 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     return true;
   }
 
-  @Override
-  protected boolean fileIsSymbolicLink(Path file) {
-    try {
-      if (isSymlinkOrJunction(file)) {
-        return true;
-      }
-    } catch (IOException | InvalidPathException e) {
-      // Did not work, try in another way
-    }
-    return super.fileIsSymbolicLink(file);
-  }
-
   public static LinkOption[] symlinkOpts(boolean followSymlinks) {
     return followSymlinks ? NO_OPTIONS : NO_FOLLOW;
   }
@@ -189,29 +176,6 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  public boolean isSymbolicLink(PathFragment path) throws IOException {
-    try {
-      return fileIsSymbolicLink(getNioPath(path));
-    } catch (InvalidPathException e) {
-      return false;
-    }
-  }
-
-  @Override
-  public boolean isDirectory(PathFragment path, boolean followSymlinks) throws IOException {
-    if (!followSymlinks) {
-      try {
-        if (isSymlinkOrJunction(getNioPath(path))) {
-          return false;
-        }
-      } catch (FileNotFoundException | InvalidPathException e) {
-        return false;
-      }
-    }
-    return super.isDirectory(path, followSymlinks);
-  }
-
-  @Override
   public void setReadable(PathFragment path, boolean readable) {
     // Windows does not have a notion of readable files.
     // https://github.com/openjdk/jdk/blob/e52a2aeeacaeb26c801b6e31f8e67e61b1ea2de3/src/java.base/windows/native/libjava/WinNTFileSystem_md.c#L473-L476
@@ -232,29 +196,5 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       return;
     }
     super.setWritable(path, writable);
-  }
-
-  /**
-   * Returns true if the path refers to a directory junction, directory symlink, or regular symlink.
-   *
-   * <p>Directory junctions are symbolic links created with "mklink /J" where the target is a
-   * directory or another directory junction. Directory junctions can be created without any user
-   * privileges.
-   *
-   * <p>Directory symlinks are symbolic links created with "mklink /D" where the target is a
-   * directory or another directory symlink. Note that directory symlinks can only be created by
-   * Administrators.
-   *
-   * <p>Normal symlinks are symbolic links created with "mklink". Normal symlinks should not point
-   * at directories, because even though "mklink" can create the link, it will not be a functional
-   * one (the linked directory's contents cannot be listed). Only Administrators may create regular
-   * symlinks.
-   *
-   * <p>This method returns true for all three types as long as their target is a directory (even if
-   * they are dangling), though only directory junctions and directory symlinks are useful.
-   */
-  @VisibleForTesting
-  static boolean isSymlinkOrJunction(Path file) throws IOException {
-    return WindowsFileOperations.isSymlinkOrJunction(file.toString());
   }
 }
