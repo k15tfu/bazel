@@ -85,7 +85,15 @@ int64_t WindowsFileTimeToUnixNanos(LARGE_INTEGER filetime) {
   // Convert from Windows file time (100ns units since January 1, 1601) to
   // Unix nanos (1ns units since January 1, 1970). For the magic constant, see:
   // https://learn.microsoft.com/en-us/windows/win32/sysinfo/converting-a-time-t-value-to-a-file-time
-  return (filetime.QuadPart - 116444736000000000LL) * 100LL;
+  constexpr int64_t kUnixEpoch = 116444736000000000LL;
+  // Cap times that don't fit instead of overflowing, which is undefined.
+  if (filetime.QuadPart < kUnixEpoch + INT64_MIN / 100LL) {
+    return INT64_MIN;
+  }
+  if (filetime.QuadPart > kUnixEpoch + INT64_MAX / 100LL) {
+    return INT64_MAX;
+  }
+  return (filetime.QuadPart - kUnixEpoch) * 100LL;
 }
 
 wstring GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result) {

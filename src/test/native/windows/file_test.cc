@@ -18,6 +18,7 @@
 
 #include "src/main/native/windows/file.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <windows.h>
@@ -84,6 +85,19 @@ TEST_F(WindowsFileOperationsTest, TestIsAbsoluteWindowsStylePath) {
   EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:\\foo\\.\\bar"));
   EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"c:\\foo\\..\\bar"));
   EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:\\foo\\..\\bar"));
+}
+
+TEST_F(WindowsFileOperationsTest, TestWindowsFileTimeToUnixNanos) {
+  LARGE_INTEGER time;
+  time.QuadPart = 116444736000000000LL;
+  EXPECT_EQ(0, WindowsFileTimeToUnixNanos(time));
+  time.QuadPart = 116444736000000001LL;
+  EXPECT_EQ(100, WindowsFileTimeToUnixNanos(time));
+
+  time.QuadPart = 0;
+  EXPECT_EQ(INT64_MIN, WindowsFileTimeToUnixNanos(time));
+  time.QuadPart = INT64_MAX;
+  EXPECT_EQ(INT64_MAX, WindowsFileTimeToUnixNanos(time));
 }
 
 TEST_F(WindowsFileOperationsTest, TestCreateJunction) {
