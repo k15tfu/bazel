@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.windows;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.windows.WindowsFileOperations.statIfFound;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -72,15 +73,13 @@ public class WindowsFileOperationsTest {
     File symlinkFile = new File(scratchRoot, "symlink");
     testUtil.createSymlinks(ImmutableMap.of("symlink", "file.txt"));
 
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(symlinkFile.toString())).isTrue();
+    assertThat(statIfFound(symlinkFile.toString(), false).isSymbolicLink()).isTrue();
     assertThat(symlinkFile.exists()).isTrue();
 
     // Assert deleting the symlink does not remove the target file.
     assertThat(WindowsFileOperations.deletePath(symlinkFile.toString())).isTrue();
     assertThat(helloFile.exists()).isTrue();
-    assertThrows(
-        FileNotFoundException.class,
-        () -> WindowsFileOperations.isSymlinkOrJunction(symlinkFile.toString()));
+    assertThat(statIfFound(symlinkFile.toString(), false)).isNull();
   }
 
   @Test
@@ -120,31 +119,28 @@ public class WindowsFileOperationsTest {
 
     testUtil.createJunctions(junctions);
 
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\shrtpath\\a")).isTrue();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\shrtpath\\b")).isTrue();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\shrtpath\\c")).isTrue();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\longlinkpath\\a")).isTrue();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\longlinkpath\\b")).isTrue();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\longlinkpath\\c")).isTrue();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\longli~1\\a")).isTrue();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\longli~1\\b")).isTrue();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\longli~1\\c")).isTrue();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\abbreviated\\a")).isTrue();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\abbreviated\\b")).isTrue();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\abbreviated\\c")).isTrue();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\abbrev~1\\a")).isTrue();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\abbrev~1\\b")).isTrue();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\abbrev~1\\c")).isTrue();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\control\\a")).isFalse();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\control\\b")).isFalse();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\control\\c")).isFalse();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\shrttrgt\\file1.txt")).isFalse();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\longtargetpath\\file2.txt"))
-        .isFalse();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\longta~1\\file2.txt")).isFalse();
-    assertThrows(
-        FileNotFoundException.class,
-        () -> WindowsFileOperations.isSymlinkOrJunction(root + "\\non-existent"));
+    assertThat(statIfFound(root + "\\shrtpath\\a", false).isSymbolicLink()).isTrue();
+    assertThat(statIfFound(root + "\\shrtpath\\b", false).isSymbolicLink()).isTrue();
+    assertThat(statIfFound(root + "\\shrtpath\\c", false).isSymbolicLink()).isTrue();
+    assertThat(statIfFound(root + "\\longlinkpath\\a", false).isSymbolicLink()).isTrue();
+    assertThat(statIfFound(root + "\\longlinkpath\\b", false).isSymbolicLink()).isTrue();
+    assertThat(statIfFound(root + "\\longlinkpath\\c", false).isSymbolicLink()).isTrue();
+    assertThat(statIfFound(root + "\\longli~1\\a", false).isSymbolicLink()).isTrue();
+    assertThat(statIfFound(root + "\\longli~1\\b", false).isSymbolicLink()).isTrue();
+    assertThat(statIfFound(root + "\\longli~1\\c", false).isSymbolicLink()).isTrue();
+    assertThat(statIfFound(root + "\\abbreviated\\a", false).isSymbolicLink()).isTrue();
+    assertThat(statIfFound(root + "\\abbreviated\\b", false).isSymbolicLink()).isTrue();
+    assertThat(statIfFound(root + "\\abbreviated\\c", false).isSymbolicLink()).isTrue();
+    assertThat(statIfFound(root + "\\abbrev~1\\a", false).isSymbolicLink()).isTrue();
+    assertThat(statIfFound(root + "\\abbrev~1\\b", false).isSymbolicLink()).isTrue();
+    assertThat(statIfFound(root + "\\abbrev~1\\c", false).isSymbolicLink()).isTrue();
+    assertThat(statIfFound(root + "\\control\\a", false).isSymbolicLink()).isFalse();
+    assertThat(statIfFound(root + "\\control\\b", false).isSymbolicLink()).isFalse();
+    assertThat(statIfFound(root + "\\control\\c", false).isSymbolicLink()).isFalse();
+    assertThat(statIfFound(root + "\\shrttrgt\\file1.txt", false).isSymbolicLink()).isFalse();
+    assertThat(statIfFound(root + "\\longtargetpath\\file2.txt", false).isSymbolicLink()).isFalse();
+    assertThat(statIfFound(root + "\\longta~1\\file2.txt", false).isSymbolicLink()).isFalse();
+    assertThat(statIfFound(root + "\\non-existent", false)).isNull();
     assertThat(Arrays.asList(new File(root + "/shrtpath/a").list())).containsExactly("file1.txt");
     assertThat(Arrays.asList(new File(root + "/shrtpath/b").list())).containsExactly("file2.txt");
     assertThat(Arrays.asList(new File(root + "/shrtpath/c").list())).containsExactly("file2.txt");
@@ -169,14 +165,14 @@ public class WindowsFileOperationsTest {
 
     File linkPath = new File(helloPath.getParent().getParent().toFile(), "link");
     assertThat(Arrays.asList(linkPath.list())).containsExactly("hello.txt");
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(linkPath.getAbsolutePath())).isTrue();
+    assertThat(statIfFound(linkPath.getAbsolutePath(), false).isSymbolicLink()).isTrue();
 
     assertThat(helloPath.toFile().delete()).isTrue();
     assertThat(helloPath.getParent().toFile().delete()).isTrue();
     assertThat(helloPath.getParent().toFile().exists()).isFalse();
     assertThat(Arrays.asList(linkPath.getParentFile().list())).containsExactly("link");
 
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(linkPath.getAbsolutePath())).isTrue();
+    assertThat(statIfFound(linkPath.getAbsolutePath(), false).isSymbolicLink()).isTrue();
     assertThat(
             Files.exists(
                 linkPath.toPath(), WindowsFileSystem.symlinkOpts(/* followSymlinks */ false)))
@@ -195,21 +191,42 @@ public class WindowsFileOperationsTest {
     // Assert that a file is identified as not a junction.
     String longPath = helloFile.getAbsolutePath();
     String shortPath = new File(helloFile.getParentFile(), "hellow~1.txt").getAbsolutePath();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(longPath)).isFalse();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(shortPath)).isFalse();
+    assertThat(statIfFound(longPath, false).isSymbolicLink()).isFalse();
+    assertThat(statIfFound(shortPath, false).isSymbolicLink()).isFalse();
 
     // Assert that after deleting the file and creating a junction with the same path, it is
     // identified as a junction.
     assertThat(helloFile.delete()).isTrue();
     testUtil.createJunctions(ImmutableMap.of("target\\helloworld.txt", "target"));
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(longPath)).isTrue();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(shortPath)).isTrue();
+    assertThat(statIfFound(longPath, false).isSymbolicLink()).isTrue();
+    assertThat(statIfFound(shortPath, false).isSymbolicLink()).isTrue();
 
     // Assert that after deleting the file and creating a directory with the same path, it is
     // identified as not a junction.
     assertThat(helloFile.delete()).isTrue();
     assertThat(helloFile.mkdir()).isTrue();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(longPath)).isFalse();
-    assertThat(WindowsFileOperations.isSymlinkOrJunction(shortPath)).isFalse();
+    assertThat(statIfFound(longPath, false).isSymbolicLink()).isFalse();
+    assertThat(statIfFound(shortPath, false).isSymbolicLink()).isFalse();
+  }
+
+  @Test
+  public void testStatIfFoundReturnsNullForMissingFile() throws Exception {
+    testUtil.scratchDir("");
+    String path = scratchRoot + "\\no_such_file";
+
+    assertThat(statIfFound(path, /* followReparsePoints= */ false)).isNull();
+    assertThat(statIfFound(path, /* followReparsePoints= */ true)).isNull();
+  }
+
+  @Test
+  public void testStatIfFoundReportsFailureOtherThanMissingFile() throws Exception {
+    // "<" is invalid in a file name, so the native call fails with an error other than "not
+    // found", which must not be reported as a missing file.
+    testUtil.scratchDir("");
+    String path = scratchRoot + "\\in<valid";
+
+    IOException e =
+        assertThrows(IOException.class, () -> statIfFound(path, /* followReparsePoints= */ true));
+    assertThat(e).isNotInstanceOf(FileNotFoundException.class);
   }
 }

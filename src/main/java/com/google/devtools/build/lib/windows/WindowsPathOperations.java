@@ -72,6 +72,16 @@ public final class WindowsPathOperations {
     }
   }
 
+  // Same limit as sun.nio.fs.WindowsPath#getPathForWin32Calls.
+  private static final int MAX_PATH_WITHOUT_UNC_PREFIX = 247;
+
+  /** Converts slashes to backslashes and, like java.nio, adds a UNC prefix only to long paths. */
+  static String addUncPrefixIfTooLongAndUseBackslashes(String path) {
+    return path.length() > MAX_PATH_WITHOUT_UNC_PREFIX
+        ? addUncPrefixAndUseBackslashes(path)
+        : path.replace('/', '\\');
+  }
+
   /** Adds a UNC prefix (if not present) and converts slashes to backslashes. */
   static String addUncPrefixAndUseBackslashes(String path) {
     return !path.startsWith("\\\\?\\")

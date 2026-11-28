@@ -18,6 +18,7 @@
 
 #include "src/main/native/windows/file.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <windows.h>
@@ -48,6 +49,12 @@ using std::unique_ptr;
 using std::wstring;
 
 static const wstring kUncPrefix = wstring(L"\\\\?\\");
+
+static bool IsReparsePoint(const wstring& path) {
+  DWORD attrs = ::GetFileAttributesW(path.c_str());
+  return attrs != INVALID_FILE_ATTRIBUTES &&
+         (attrs & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+}
 
 class WindowsFileOperationsTest : public ::testing::Test {
  public:
@@ -80,6 +87,19 @@ TEST_F(WindowsFileOperationsTest, TestIsAbsoluteWindowsStylePath) {
   EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:\\foo\\..\\bar"));
 }
 
+TEST_F(WindowsFileOperationsTest, TestWindowsFileTimeToUnixNanos) {
+  LARGE_INTEGER time;
+  time.QuadPart = 116444736000000000LL;
+  EXPECT_EQ(0, WindowsFileTimeToUnixNanos(time));
+  time.QuadPart = 116444736000000001LL;
+  EXPECT_EQ(100, WindowsFileTimeToUnixNanos(time));
+
+  time.QuadPart = 0;
+  EXPECT_EQ(INT64_MIN, WindowsFileTimeToUnixNanos(time));
+  time.QuadPart = INT64_MAX;
+  EXPECT_EQ(INT64_MAX, WindowsFileTimeToUnixNanos(time));
+}
+
 TEST_F(WindowsFileOperationsTest, TestCreateJunction) {
   wstring tmp(kUncPrefix + GetTestTmpDirW());
   wstring target(tmp + L"\\junc_target");
@@ -87,10 +107,7 @@ TEST_F(WindowsFileOperationsTest, TestCreateJunction) {
   wstring file1(target + L"\\foo");
   EXPECT_TRUE(blaze_util::CreateDummyFile(file1));
 
-  bool is_link = true;
-  EXPECT_EQ(IsSymlinkOrJunctionResult::kSuccess,
-            IsSymlinkOrJunction(target.c_str(), &is_link, nullptr));
-  EXPECT_FALSE(is_link);
+  EXPECT_FALSE(IsReparsePoint(target));
   EXPECT_NE(INVALID_FILE_ATTRIBUTES, ::GetFileAttributesW(file1.c_str()));
 
   wstring name(tmp + L"\\junc_name");
@@ -107,22 +124,10 @@ TEST_F(WindowsFileOperationsTest, TestCreateJunction) {
             CreateJunctionResult::kSuccess);
 
   // Assert creation of the junctions.
-  is_link = false;
-  ASSERT_EQ(IsSymlinkOrJunctionResult::kSuccess,
-            IsSymlinkOrJunction((name + L"1").c_str(), &is_link, nullptr));
-  ASSERT_TRUE(is_link);
-  is_link = false;
-  ASSERT_EQ(IsSymlinkOrJunctionResult::kSuccess,
-            IsSymlinkOrJunction((name + L"2").c_str(), &is_link, nullptr));
-  ASSERT_TRUE(is_link);
-  is_link = false;
-  ASSERT_EQ(IsSymlinkOrJunctionResult::kSuccess,
-            IsSymlinkOrJunction((name + L"3").c_str(), &is_link, nullptr));
-  ASSERT_TRUE(is_link);
-  is_link = false;
-  ASSERT_EQ(IsSymlinkOrJunctionResult::kSuccess,
-            IsSymlinkOrJunction((name + L"4").c_str(), &is_link, nullptr));
-  ASSERT_TRUE(is_link);
+  ASSERT_TRUE(IsReparsePoint(name + L"1"));
+  ASSERT_TRUE(IsReparsePoint(name + L"2"));
+  ASSERT_TRUE(IsReparsePoint(name + L"3"));
+  ASSERT_TRUE(IsReparsePoint(name + L"4"));
 
   // Assert that the file is visible under all junctions.
   ASSERT_NE(INVALID_FILE_ATTRIBUTES,

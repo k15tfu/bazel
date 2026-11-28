@@ -59,6 +59,42 @@ cc_test(
 )
 
 cc_test(
+    name = "stat_test",
+    size = "small",
+    srcs = select({
+        "//src/conditions:windows": ["stat_test.cc"],
+        "//conditions:default": ["dummy_test.cc"],
+    }),
+    deps = select({
+        "//src/conditions:windows": [
+            ":test_deps",
+            "//src/main/native/windows:lib-file",
+            "//src/main/native/windows:lib-stat",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+# Runs stat_test with Stat forced onto the file handle fallback path.
+cc_test(
+    name = "stat_by_handle_test",
+    size = "small",
+    srcs = select({
+        "//src/conditions:windows": ["stat_test.cc"],
+        "//conditions:default": ["dummy_test.cc"],
+    }),
+    env = {"BAZEL_WINDOWS_STAT_BY_HANDLE": "1"},
+    deps = select({
+        "//src/conditions:windows": [
+            ":test_deps",
+            "//src/main/native/windows:lib-file",
+            "//src/main/native/windows:lib-stat",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+cc_test(
     name = "process_test",
     size = "small",
     srcs = select({

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.windows;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -29,8 +28,6 @@ import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.attribute.DosFileAttributes;
-import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /** File system implementation for Windows. */
@@ -137,122 +134,38 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     return true;
   }
 
-  @Override
-  protected boolean fileIsSymbolicLink(Path file) {
-    try {
-      if (isSymlinkOrJunction(file)) {
-        return true;
-      }
-    } catch (IOException | InvalidPathException e) {
-      // Did not work, try in another way
-    }
-    return super.fileIsSymbolicLink(file);
-  }
-
   public static LinkOption[] symlinkOpts(boolean followSymlinks) {
     return followSymlinks ? NO_OPTIONS : NO_FOLLOW;
   }
 
   @Override
   public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    final Path nioPath;
-    final DosFileAttributes attributes;
+    final WindowsFileStatus status;
     try {
-      nioPath = getNioPath(path);
-      attributes = getAttribs(nioPath, followSymlinks);
-    } catch (IOException | InvalidPathException e) {
+      status =
+          WindowsFileOperations.statIfFound(
+              getNioPath(path).toAbsolutePath().toString(), followSymlinks);
+    } catch (InvalidPathException e) {
       FileNotFoundException fnfe = new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
       fnfe.initCause(e);
       throw fnfe;
     }
-
-    FileStatus status =
-        new FileStatus() {
-          @Nullable volatile Boolean isSymbolicLink; // null if not yet known
-          volatile long lastChangeTimeNanos = -1;
-
-          @Override
-          public boolean isFile() {
-            return !isSymbolicLink() && (attributes.isRegularFile() || isSpecialFile());
-          }
-
-          @Override
-          public boolean isSpecialFile() {
-            // attributes.isOther() returns false for symlinks but returns true for junctions.
-            // Bazel treats junctions like symlinks. So let's return false here for junctions.
-            // This fixes https://github.com/bazelbuild/bazel/issues/9176
-            return !isSymbolicLink() && attributes.isOther();
-          }
-
-          @Override
-          public boolean isDirectory() {
-            return !isSymbolicLink() && attributes.isDirectory();
-          }
-
-          @Override
-          public boolean isSymbolicLink() {
-            if (isSymbolicLink == null) {
-              isSymbolicLink = !followSymlinks && fileIsSymbolicLink(nioPath);
-            }
-            return isSymbolicLink;
-          }
-
-          @Override
-          public long getSize() {
-            return attributes.size();
-          }
-
-          @Override
-          public long getLastModifiedTimeNanos() {
-            return attributes.lastModifiedTime().to(TimeUnit.NANOSECONDS);
-          }
-
-          @Override
-          public long getLastChangeTimeNanos() throws IOException {
-            if (lastChangeTimeNanos == -1) {
-              lastChangeTimeNanos =
-                  WindowsFileOperations.getLastChangeTimeNanos(nioPath.toString(), followSymlinks);
-            }
-            return lastChangeTimeNanos;
-          }
-
-          @Override
-          public long getNodeId() {
-            // TODO(bazel-team): Consider making use of attributes.fileKey().
-            return -1;
-          }
-
-          @Override
-          public int getPermissions() {
-            // Files on Windows are implicitly readable and executable.
-            return 0555 | (attributes.isReadOnly() ? 0 : 0200);
-          }
-        };
-
+    if (status == null) {
+      throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
+    }
     return status;
   }
 
   @Override
-  public boolean isSymbolicLink(PathFragment path) throws IOException {
+  @Nullable
+  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     try {
-      return fileIsSymbolicLink(getNioPath(path));
+      return WindowsFileOperations.statIfFound(
+          getNioPath(path).toAbsolutePath().toString(), followSymlinks);
     } catch (InvalidPathException e) {
-      return false;
+      // Same as WindowsFileSystem#stat: null where #stat throws FileNotFoundException
+      return null;
     }
-  }
-
-  @Override
-  public boolean isDirectory(PathFragment path, boolean followSymlinks) throws IOException {
-    if (!followSymlinks) {
-      try {
-        if (isSymlinkOrJunction(getNioPath(path))) {
-          return false;
-        }
-      } catch (FileNotFoundException | InvalidPathException e) {
-        return false;
-      }
-    }
-    return super.isDirectory(path, followSymlinks);
   }
 
   @Override
@@ -276,34 +189,5 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       return;
     }
     super.setWritable(path, writable);
-  }
-
-  /**
-   * Returns true if the path refers to a directory junction, directory symlink, or regular symlink.
-   *
-   * <p>Directory junctions are symbolic links created with "mklink /J" where the target is a
-   * directory or another directory junction. Directory junctions can be created without any user
-   * privileges.
-   *
-   * <p>Directory symlinks are symbolic links created with "mklink /D" where the target is a
-   * directory or another directory symlink. Note that directory symlinks can only be created by
-   * Administrators.
-   *
-   * <p>Normal symlinks are symbolic links created with "mklink". Normal symlinks should not point
-   * at directories, because even though "mklink" can create the link, it will not be a functional
-   * one (the linked directory's contents cannot be listed). Only Administrators may create regular
-   * symlinks.
-   *
-   * <p>This method returns true for all three types as long as their target is a directory (even if
-   * they are dangling), though only directory junctions and directory symlinks are useful.
-   */
-  @VisibleForTesting
-  static boolean isSymlinkOrJunction(Path file) throws IOException {
-    return WindowsFileOperations.isSymlinkOrJunction(file.toString());
-  }
-
-  private static DosFileAttributes getAttribs(Path file, boolean followSymlinks)
-      throws IOException {
-    return Files.readAttributes(file, DosFileAttributes.class, symlinkOpts(followSymlinks));
   }
 }

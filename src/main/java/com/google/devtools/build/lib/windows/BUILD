@@ -14,7 +14,10 @@ filegroup(
 
 java_library(
     name = "file",
-    srcs = ["WindowsFileOperations.java"],
+    srcs = [
+        "WindowsFileOperations.java",
+        "WindowsFileStatus.java",
+    ],
     visibility = [
         "//src/main/java/com/google/devtools/build/lib:build_lib",
         "//third_party/bazel_rules/rules_android/src/tools/java/com/google/devtools/build/android/junctions:__pkg__",
@@ -25,6 +28,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -56,7 +60,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party/java/guava:annotations",
         "//third_party/java/jsr305_annotations",
     ],
 )

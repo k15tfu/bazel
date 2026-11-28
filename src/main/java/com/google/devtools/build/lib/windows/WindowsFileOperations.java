@@ -17,12 +17,15 @@ package com.google.devtools.build.lib.windows;
 import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
 
 import com.google.devtools.build.lib.jni.JniLoader;
+import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryNotEmptyException;
+import javax.annotation.Nullable;
 
 /** File operations on Windows. */
 public class WindowsFileOperations {
@@ -54,17 +57,6 @@ public class WindowsFileOperations {
     // Prevent construction
   }
 
-  // Keep IS_SYMLINK_OR_JUNCTION_* values in sync with src/main/native/windows/file.cc.
-  private static final int IS_SYMLINK_OR_JUNCTION_SUCCESS = 0;
-  // IS_SYMLINK_OR_JUNCTION_ERROR = 1;
-  private static final int IS_SYMLINK_OR_JUNCTION_DOES_NOT_EXIST = 2;
-
-  // Keep GET_CHANGE_TIME_* values in sync with src/main/native/windows/file.cc.
-  private static final int GET_CHANGE_TIME_SUCCESS = 0;
-  //  private static final int GET_CHANGE_TIME_ERROR = 1;
-  private static final int GET_CHANGE_TIME_DOES_NOT_EXIST = 2;
-  private static final int GET_CHANGE_TIME_ACCESS_DENIED = 3;
-
   // Keep CREATE_JUNCTION_* values in sync with src/main/native/windows/file.h.
   private static final int CREATE_JUNCTION_SUCCESS = 0;
   // CREATE_JUNCTION_ERROR = 1;
@@ -94,11 +86,15 @@ public class WindowsFileOperations {
   private static final int READ_SYMLINK_OR_JUNCTION_DOES_NOT_EXIST = 3;
   private static final int READ_SYMLINK_OR_JUNCTION_NOT_A_LINK = 4;
 
-  private static native int nativeIsSymlinkOrJunction(
-      String path, boolean[] result, String[] error);
+  // Keep STAT_* values in sync with src/main/native/windows/stat.h.
+  private static final int STAT_SUCCESS = 0;
+  // STAT_ERROR = 1;
+  private static final int STAT_DOES_NOT_EXIST = 2;
+  private static final int STAT_ACCESS_DENIED = 3;
+  private static final int STAT_SYMLINK_LOOP = 4;
 
-  private static native int nativeGetChangeTime(
-      String path, boolean followReparsePoints, long[] result, String[] error);
+  // Keep STAT_RESULT_LENGTH in sync with kStatResultLength in src/main/native/windows/stat.h.
+  private static final int STAT_RESULT_LENGTH = 4;
 
   private static native int nativeCreateJunction(String name, String target, String[] error);
 
@@ -109,52 +105,8 @@ public class WindowsFileOperations {
 
   private static native int nativeDeletePath(String path, String[] error);
 
-  /** Determines whether `path` is a junction point or directory symlink. */
-  public static boolean isSymlinkOrJunction(String path) throws IOException {
-    boolean[] result = new boolean[] {false};
-    String[] error = new String[] {null};
-    switch (nativeIsSymlinkOrJunction(
-        WindowsPathOperations.addUncPrefixAndUseBackslashes(path), result, error)) {
-      case IS_SYMLINK_OR_JUNCTION_SUCCESS:
-        return result[0];
-      case IS_SYMLINK_OR_JUNCTION_DOES_NOT_EXIST:
-        throw new FileNotFoundException(platformToInternal(path));
-      default:
-        // This is IS_SYMLINK_OR_JUNCTION_ERROR (1). The JNI code puts a custom message in
-        // 'error[0]'.
-        break;
-    }
-    throw new IOException(
-        platformToInternal(String.format("Cannot tell if '%s' is link: %s", path, error[0])));
-  }
-
-  /**
-   * Returns the time at which the file was last changed, including metadata changes, in nanoseconds
-   * since the Unix epoch.
-   */
-  public static long getLastChangeTimeNanos(String path, boolean followReparsePoints)
-      throws IOException {
-    long[] result = new long[] {0};
-    String[] error = new String[] {null};
-    switch (nativeGetChangeTime(
-        WindowsPathOperations.addUncPrefixAndUseBackslashes(path),
-        followReparsePoints,
-        result,
-        error)) {
-      case GET_CHANGE_TIME_SUCCESS:
-        return result[0];
-      case GET_CHANGE_TIME_DOES_NOT_EXIST:
-        throw new FileNotFoundException(platformToInternal(path));
-      case GET_CHANGE_TIME_ACCESS_DENIED:
-        throw new AccessDeniedException(platformToInternal(path));
-      default:
-        // This is GET_CHANGE_TIME_ERROR (1). The JNI code puts a custom message in 'error[0]'.
-        break;
-    }
-    throw new IOException(
-        platformToInternal(
-            String.format("Cannot get last change time of '%s': %s", path, error[0])));
-  }
+  private static native int nativeStat(
+      String path, boolean followReparsePoints, long[] result, String[] error);
 
   /**
    * Creates a junction at `name`, pointing to `target`.
@@ -259,6 +211,34 @@ public class WindowsFileOperations {
         // This is DELETE_PATH_ERROR (1). The JNI code puts a custom message in 'error[0]'.
         throw new IOException(
             platformToInternal(String.format("Cannot delete path '%s': %s", path, error[0])));
+    }
+  }
+
+  /** Returns the status of `path`, or null if it does not exist. */
+  @Nullable
+  static WindowsFileStatus statIfFound(String path, boolean followReparsePoints)
+      throws IOException {
+    // Keep the layout in sync with nativeStat in file-jni.cc.
+    long[] result = new long[STAT_RESULT_LENGTH];
+    String[] error = new String[] {null};
+    switch (nativeStat(
+        WindowsPathOperations.addUncPrefixIfTooLongAndUseBackslashes(path),
+        followReparsePoints,
+        result,
+        error)) {
+      case STAT_SUCCESS:
+        return new WindowsFileStatus((int) result[0], result[1], result[2], result[3]);
+      case STAT_DOES_NOT_EXIST:
+        return null;
+      case STAT_ACCESS_DENIED:
+        throw new AccessDeniedException(platformToInternal(path));
+      case STAT_SYMLINK_LOOP:
+        throw new FileSymlinkLoopException(
+            platformToInternal(path) + FileSystem.ERR_TOO_MANY_SYMLINKS);
+      default:
+        // This is STAT_ERROR (1). The JNI code puts a custom message in 'error[0]'.
+        throw new IOException(
+            platformToInternal(String.format("Cannot stat '%s': %s", path, error[0])));
     }
   }
 }

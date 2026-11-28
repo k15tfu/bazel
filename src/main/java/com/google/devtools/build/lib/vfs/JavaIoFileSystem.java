@@ -208,12 +208,8 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
       return true;
     }
 
-    try {
-      if (fileIsSymbolicLink(file.toPath())) {
-        throw new IOException(path + ERR_FILE_EXISTS);
-      }
-    } catch (InvalidPathException e) {
-      throw new IOException(path + ERR_NO_SUCH_FILE_OR_DIR, e);
+    if (isSymbolicLink(path)) {
+      throw new IOException(path + ERR_FILE_EXISTS);
     }
     if (file.isDirectory()) {
       return false; // directory already existed
@@ -401,10 +397,6 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
     }
   }
 
-  protected boolean fileIsSymbolicLink(java.nio.file.Path file) {
-    return Files.isSymbolicLink(file);
-  }
-
   @Override
   public void setLastModifiedTimeNanos(PathFragment path, long newTime) throws IOException {
     try {
@@ -504,7 +496,7 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
 
   @Override
   @Nullable
-  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) {
+  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     try {
       return stat(path, followSymlinks);
     } catch (FileNotFoundException | InvalidPathException e) {
@@ -513,10 +505,6 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
       // codepath. Thus, this method will incorrectly not throw an exception for some filesystem
       // errors.
       return null;
-    } catch (IOException e) {
-      // If this codepath is ever hit, then this method should be rewritten to properly distinguish
-      // between not-found exceptions and others.
-      throw new IllegalStateException(e);
     }
   }
 

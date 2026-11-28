@@ -81,87 +81,19 @@ static wstring uint32asHexString(uint32_t value) {
   return wstring(attr_str, 8);
 }
 
-int IsSymlinkOrJunction(const WCHAR* path, bool* result, wstring* error) {
-  if (!IsAbsoluteNormalizedWindowsPath(path)) {
-    if (error) {
-      *error =
-          MakeErrorMessage(WSTR(__FILE__), __LINE__, L"IsSymlinkOrJunction",
-                           path, L"expected an absolute Windows path");
-    }
-    return IsSymlinkOrJunctionResult::kError;
-  }
-
-  DWORD attrs = ::GetFileAttributesW(path);
-  if (attrs == INVALID_FILE_ATTRIBUTES) {
-    DWORD err = GetLastError();
-    if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
-      return IsSymlinkOrJunctionResult::kDoesNotExist;
-    }
-
-    if (error) {
-      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                L"IsSymlinkOrJunction", path, err);
-    }
-    return IsSymlinkOrJunctionResult::kError;
-  } else {
-    *result = (attrs & FILE_ATTRIBUTE_REPARSE_POINT);
-    return IsSymlinkOrJunctionResult::kSuccess;
-  }
-}
-
-static int64_t WindowsFileTimeToUnixNanos(LARGE_INTEGER filetime) {
+int64_t WindowsFileTimeToUnixNanos(LARGE_INTEGER filetime) {
   // Convert from Windows file time (100ns units since January 1, 1601) to
   // Unix nanos (1ns units since January 1, 1970). For the magic constant, see:
   // https://learn.microsoft.com/en-us/windows/win32/sysinfo/converting-a-time-t-value-to-a-file-time
-  return (filetime.QuadPart - 116444736000000000LL) * 100LL;
-}
-
-int GetChangeTime(const WCHAR* path, bool follow_reparse_points,
-                  int64_t* result, wstring* error) {
-  if (!IsAbsoluteNormalizedWindowsPath(path)) {
-    if (error) {
-      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"GetChangeTime",
-                                path, L"expected an absolute Windows path");
-    }
-    return GetChangeTimeResult::kError;
+  constexpr int64_t kUnixEpoch = 116444736000000000LL;
+  // Cap times that don't fit instead of overflowing, which is undefined.
+  if (filetime.QuadPart < kUnixEpoch + INT64_MIN / 100LL) {
+    return INT64_MIN;
   }
-
-  AutoHandle handle;
-  DWORD flags = FILE_FLAG_BACKUP_SEMANTICS;
-  if (!follow_reparse_points) {
-    flags |= FILE_FLAG_OPEN_REPARSE_POINT;
+  if (filetime.QuadPart > kUnixEpoch + INT64_MAX / 100LL) {
+    return INT64_MAX;
   }
-  handle = CreateFileW(path, 0,
-                       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                       nullptr, OPEN_EXISTING, flags, nullptr);
-
-  if (!handle.IsValid()) {
-    DWORD err = GetLastError();
-    if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
-      return GetChangeTimeResult::kDoesNotExist;
-    } else if (err == ERROR_ACCESS_DENIED) {
-      return GetChangeTimeResult::kAccessDenied;
-    }
-    if (error) {
-      *error =
-          MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateFileW", path, err);
-    }
-    return GetChangeTimeResult::kError;
-  }
-
-  FILE_BASIC_INFO info;
-  if (!GetFileInformationByHandleEx(handle, FileBasicInfo, (LPVOID)&info,
-                                    sizeof(FILE_BASIC_INFO))) {
-    DWORD err = GetLastError();
-    if (error) {
-      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                L"GetFileInformationByHandleEx", path, err);
-    }
-    return GetChangeTimeResult::kError;
-  }
-
-  *result = WindowsFileTimeToUnixNanos(info.ChangeTime);
-  return GetChangeTimeResult::kSuccess;
+  return (filetime.QuadPart - kUnixEpoch) * 100LL;
 }
 
 wstring GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
@@ -584,9 +516,9 @@ int ReadSymlinkOrJunction(const wstring& path, wstring* result,
     return ReadSymlinkOrJunctionResult::kError;
   }
 
-  // TODO(tjgq): Make IsSymlinkOrJunction and ReadSymlinkOrJunction consistent.
-  // Currently, the former returns true for any reparse point type, but we don't
-  // handle all of them here (and it might be impossible to do so).
+  // TODO(tjgq): Make WindowsFileStatus#isSymbolicLink and ReadSymlinkOrJunction
+  // consistent. Currently, the former returns true for any reparse point type,
+  // but we don't handle all of them here (and it might be impossible to do so).
   switch (buf->ReparseTag) {
     // IO_REPARSE_TAG_SYMLINK is an NTFS symlink.
     // IO_REPARSE_TAG_LX_SYMLINK is a WSL symlink.
