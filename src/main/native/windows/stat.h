@@ -34,6 +34,7 @@ struct StatResult {
     kError = 1,
     kDoesNotExist = 2,
     kAccessDenied = 3,
+    kSymlinkLoop = 4,
   };
 };
 

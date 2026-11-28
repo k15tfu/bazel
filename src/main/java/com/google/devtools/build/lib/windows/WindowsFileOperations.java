@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.windows;
 import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
 
 import com.google.devtools.build.lib.jni.JniLoader;
+import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.FileNotFoundException;
@@ -89,6 +91,7 @@ public class WindowsFileOperations {
   // STAT_ERROR = 1;
   private static final int STAT_DOES_NOT_EXIST = 2;
   private static final int STAT_ACCESS_DENIED = 3;
+  private static final int STAT_SYMLINK_LOOP = 4;
 
   // Keep STAT_RESULT_LENGTH in sync with kStatResultLength in src/main/native/windows/stat.h.
   private static final int STAT_RESULT_LENGTH = 4;
@@ -229,6 +232,9 @@ public class WindowsFileOperations {
         return null;
       case STAT_ACCESS_DENIED:
         throw new AccessDeniedException(platformToInternal(path));
+      case STAT_SYMLINK_LOOP:
+        throw new FileSymlinkLoopException(
+            platformToInternal(path) + FileSystem.ERR_TOO_MANY_SYMLINKS);
       default:
         // This is STAT_ERROR (1). The JNI code puts a custom message in 'error[0]'.
         throw new IOException(

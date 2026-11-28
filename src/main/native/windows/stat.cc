@@ -99,6 +99,9 @@ int StatByHandle(const WCHAR* path, bool follow_reparse_points,
     if (err == ERROR_ACCESS_DENIED) {
       return StatResult::kAccessDenied;
     }
+    if (err == ERROR_CANT_RESOLVE_FILENAME) {
+      return StatResult::kSymlinkLoop;
+    }
     error =
         MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateFileW", path, err);
     return StatResult::kError;

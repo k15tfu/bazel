@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -202,6 +203,22 @@ public class WindowsFileSystemTest {
     assertThrows(FileNotFoundException.class, () -> fs.stat(fragment, /* followSymlinks= */ true));
     assertThat(fs.statIfFound(missing.asFragment(), /* followSymlinks= */ true)).isNull();
     assertThat(fs.statIfFound(missing.asFragment(), /* followSymlinks= */ false)).isNull();
+  }
+
+  @Test
+  public void testStatOfJunctionLoop() throws Exception {
+    testUtil.scratchDir("a");
+    testUtil.createJunctions(ImmutableMap.of("b", "a"));
+    Path a = testUtil.createVfsPath(fs, "a");
+    assertThat(a.delete()).isTrue();
+    testUtil.createJunctions(ImmutableMap.of("a", "b"));
+
+    assertThat(fs.stat(a.asFragment(), /* followSymlinks= */ false).isSymbolicLink()).isTrue();
+    assertThrows(
+        FileSymlinkLoopException.class, () -> fs.stat(a.asFragment(), /* followSymlinks= */ true));
+    assertThrows(
+        FileSymlinkLoopException.class,
+        () -> fs.statIfFound(a.asFragment(), /* followSymlinks= */ true));
   }
 
   @Test
