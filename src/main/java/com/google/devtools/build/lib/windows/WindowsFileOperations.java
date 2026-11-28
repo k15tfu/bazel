@@ -219,7 +219,7 @@ public class WindowsFileOperations {
     long[] result = new long[STAT_RESULT_LENGTH];
     String[] error = new String[] {null};
     switch (nativeStat(
-        WindowsPathOperations.addUncPrefixAndUseBackslashes(path),
+        WindowsPathOperations.addUncPrefixIfTooLongAndUseBackslashes(path),
         followReparsePoints,
         result,
         error)) {

@@ -41,6 +41,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.text.Normalizer;
 import java.time.Instant;
 import java.util.Arrays;
@@ -201,6 +202,31 @@ public class WindowsFileSystemTest {
     assertThrows(FileNotFoundException.class, () -> fs.stat(fragment, /* followSymlinks= */ true));
     assertThat(fs.statIfFound(missing.asFragment(), /* followSymlinks= */ true)).isNull();
     assertThat(fs.statIfFound(missing.asFragment(), /* followSymlinks= */ false)).isNull();
+  }
+
+  @Test
+  public void testStatIgnoresTrailingDotLikeNio(@TestParameter boolean followSymlinks)
+      throws Exception {
+    testUtil.scratchFile("dir\\input.txt", "hello");
+    PathFragment path = testUtil.createVfsPath(fs, "dir").asFragment().getChild("input.txt.");
+    java.nio.file.Path nioPath = java.nio.file.Paths.get(path.getPathString());
+    LinkOption[] linkOptions = WindowsFileSystem.symlinkOpts(followSymlinks);
+
+    FileStatus status = fs.statIfFound(path, followSymlinks);
+
+    assertThat(Files.isRegularFile(nioPath, linkOptions)).isTrue();
+    assertThat(status.isFile()).isTrue();
+  }
+
+  @Test
+  public void testStatOfReservedDeviceNameFails(@TestParameter boolean followSymlinks)
+      throws Exception {
+    testUtil.scratchFile("dir\\input.txt", "hello");
+    PathFragment path = testUtil.createVfsPath(fs, "dir").asFragment().getChild("NUL");
+
+    IOException e = assertThrows(IOException.class, () -> fs.statIfFound(path, followSymlinks));
+    assertThat(e).isNotInstanceOf(FileNotFoundException.class);
+    assertThrows(IOException.class, () -> fs.stat(path, followSymlinks));
   }
 
   @Test
