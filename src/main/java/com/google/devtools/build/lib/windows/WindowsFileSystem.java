@@ -142,7 +142,9 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
     final WindowsFileStatus status;
     try {
-      status = WindowsFileOperations.statIfFound(getNioPath(path).toString(), followSymlinks);
+      status =
+          WindowsFileOperations.statIfFound(
+              getNioPath(path).toAbsolutePath().toString(), followSymlinks);
     } catch (InvalidPathException e) {
       FileNotFoundException fnfe = new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
       fnfe.initCause(e);
@@ -158,7 +160,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   @Nullable
   public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     try {
-      return WindowsFileOperations.statIfFound(getNioPath(path).toString(), followSymlinks);
+      return WindowsFileOperations.statIfFound(
+          getNioPath(path).toAbsolutePath().toString(), followSymlinks);
     } catch (InvalidPathException e) {
       // Same as WindowsFileSystem#stat: null where #stat throws FileNotFoundException
       return null;

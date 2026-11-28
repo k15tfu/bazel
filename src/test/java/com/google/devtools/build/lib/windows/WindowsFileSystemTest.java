@@ -205,6 +205,15 @@ public class WindowsFileSystemTest {
   }
 
   @Test
+  public void testStatOfPathWithoutDriveLetter(@TestParameter boolean followSymlinks)
+      throws Exception {
+    PathFragment path = PathFragment.create("/etc/release");
+
+    assertThat(fs.statIfFound(path, followSymlinks)).isNull();
+    assertThrows(FileNotFoundException.class, () -> fs.stat(path, followSymlinks));
+  }
+
+  @Test
   public void testStatIgnoresTrailingDotLikeNio(@TestParameter boolean followSymlinks)
       throws Exception {
     testUtil.scratchFile("dir\\input.txt", "hello");
